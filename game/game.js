@@ -2099,7 +2099,7 @@ async function boot() {
       + selfCare();
     $('hScore').textContent = st.callsIn;
     $('hPgy').src = ME(all && !bad ? 'survived' : 'sleepy');
-    $('hBadge').textContent = `稱號：${S.special && !bad ? S.special.badge : S.gameover ? '差點毀了專業的聽力師' : S.collapsed ? '累倒在辦公室的聽力師' : S.hypo ? '餓到去急診打葡萄糖的聽力師' : S.infected ? '憋尿憋到請假的聽力師' : !all ? '還在加班的人' : S.complaints ? '被投訴也撐過去的聽力師' : S.pretries ? '跌倒了再站起來的聽力師' : '一個人撐住整個聽力中心的聽力師'}`;
+    $('hBadge').textContent = `稱號：${S.special && !bad && all && (S.complaints || S.pretries) ? S.special.badge : S.gameover ? '差點毀了專業的聽力師' : S.collapsed ? '累倒在辦公室的聽力師' : S.hypo ? '餓到去急診打葡萄糖的聽力師' : S.infected ? '憋尿憋到請假的聽力師' : !all ? '還在加班的人' : S.complaints ? '被投訴也撐過去的聽力師' : S.pretries ? '跌倒了再站起來的聽力師' : '一個人撐住整個聽力中心的聽力師'}`;
     $('hChiefAvatar').style.backgroundImage = `url(${IMG('nurse_caring')})`;
     $('hChief').textContent = S.hypo
       ? '你餓到手抖、臉色發白，同事趕緊扶你去急診打了葡萄糖，剩下的病人只好請人接手。工作再忙，午餐也要吃：照顧好自己，才照顧得了病人。'
