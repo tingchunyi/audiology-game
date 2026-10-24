@@ -2076,12 +2076,12 @@ async function boot() {
     const avgFav = favs.length ? Math.round(favs.reduce((a, b) => a + b, 0) / favs.length) : 0;
     const overtime = Math.max(0, Math.round(Math.min(S.t, END) - OFF));
     const all = tonight.length > 0 && seen.length === tonight.length;
-    const bad = S.collapsed || S.infected || S.gameover;
+    const bad = S.collapsed || S.infected || S.hypo || S.gameover;
     document.querySelector('#handover .mark').textContent = `${GAME.title} · ${GAME.edition} · ${SHIFT_NAME[S.shift]}${S.duty ? ' · 值班日' : ' · 非值班日'}`;
     $('hStamp').hidden = S.shift !== 'hard';
     if (S.shift === 'hard') drawStamp($('hStamp'), '#cf2027');
-    $('hWhen').textContent = `${fmt(S.t)} · ${S.gameover ? '今天結束了' : S.collapsed ? '累倒了' : S.infected ? '請假看醫生' : overtime ? `加班 ${overtime} 分鐘後下班` : '準時下班'}`;
-    $('hTitle').textContent = (S.nick ? `${S.nick}聽力師，` : '') + (S.gameover ? '你答應了不能答應的事' : S.collapsed ? '你累倒了' : S.infected ? '你得了尿道感染' : all ? `${CN[tonight.length]}位病人都處理好了，今天順利下班`
+    $('hWhen').textContent = `${fmt(S.t)} · ${S.gameover ? '今天結束了' : S.collapsed ? '累倒了' : S.hypo ? '送急診' : S.infected ? '請假看醫生' : overtime ? `加班 ${overtime} 分鐘後下班` : '準時下班'}`;
+    $('hTitle').textContent = (S.nick ? `${S.nick}聽力師，` : '') + (S.gameover ? '你答應了不能答應的事' : S.collapsed ? '你累倒了' : S.hypo ? '你低血糖昏倒了' : S.infected ? '你得了尿道感染' : all ? `${CN[tonight.length]}位病人都處理好了，今天順利下班`
       : left.length + gone.length ? `完成 ${seen.length} 位，還有 ${left.length + gone.length} 位沒處理好` : seen.length ? `處理好了 ${seen.length} 位` : '今天先到這裡');
     if (S.special && !bad) $('hTitle').textContent = (S.nick ? `${S.nick}聽力師，` : '') + S.special.title;
     $('hStats').innerHTML = [
@@ -2090,7 +2090,7 @@ async function boot() {
     ].map(([k, v, u]) => `<div class="stat"><small>${k}</small><b>${v}<span>${u}</span></b></div>`).join('');
     const cards = tonight.filter(c => S.calls[c.id]?.opened);
     const spNote = S.special ? `<li class="tip best">${esc(S.special.tip)}</li>` : '';
-    const note = spNote + (S.gameover ? `<li class="tip miss">${esc(S.gameover)}</li>` : S.infected ? '<li class="tip miss">尿意滿了又憋了一個多小時，得了尿道感染，只好請假去看醫生。再忙，也要記得上廁所。</li>' : '');
+    const note = spNote + (S.gameover ? `<li class="tip miss">${esc(S.gameover)}</li>` : S.hypo ? '<li class="tip miss">一整天沒好好吃東西，肚子餓到歸零，低血糖冒冷汗、眼前發黑，被同事扶去急診打葡萄糖，今天只好提早下班。再忙，也要記得吃飯。</li>' : S.infected ? '<li class="tip miss">尿意滿了又憋了一個多小時，得了尿道感染，只好請假去看醫生。再忙，也要記得上廁所。</li>' : '');
     $('hCases').innerHTML = note + seen.map(c => `<li class="tip"><b>${BL(CASES[c.id].bed)}</b> ${esc(c.results[S.outcome[c.id]])}</li>`).join('')
       + gone.map(c => `<li class="tip miss">${esc(c.name)}等不下去，走了，也投訴了。</li>`).join('')
       + left.map(c => `<li class="tip miss">${esc(c.name)}${S.calls[c.id]?.opened ? '還沒處理好，就到下班時間了' : '等到下班，都沒有人去看'}</li>`).join('')
@@ -2099,12 +2099,14 @@ async function boot() {
       + selfCare();
     $('hScore').textContent = st.callsIn;
     $('hPgy').src = ME(all && !bad ? 'survived' : 'sleepy');
-    $('hBadge').textContent = `稱號：${S.special && !bad ? S.special.badge : S.gameover ? '差點毀了專業的聽力師' : S.collapsed ? '累倒在辦公室的聽力師' : S.infected ? '憋尿憋到請假的聽力師' : !all ? '還在加班的人' : S.complaints ? '被投訴也撐過去的聽力師' : S.pretries ? '跌倒了再站起來的聽力師' : '一個人撐住整個聽力中心的聽力師'}`;
+    $('hBadge').textContent = `稱號：${S.special && !bad ? S.special.badge : S.gameover ? '差點毀了專業的聽力師' : S.collapsed ? '累倒在辦公室的聽力師' : S.hypo ? '餓到去急診打葡萄糖的聽力師' : S.infected ? '憋尿憋到請假的聽力師' : !all ? '還在加班的人' : S.complaints ? '被投訴也撐過去的聽力師' : S.pretries ? '跌倒了再站起來的聽力師' : '一個人撐住整個聽力中心的聽力師'}`;
     $('hChiefAvatar').style.backgroundImage = `url(${IMG('nurse_caring')})`;
-    $('hChief').textContent = S.collapsed
+    $('hChief').textContent = S.hypo
+      ? '你餓到手抖、臉色發白，同事趕緊扶你去急診打了葡萄糖，剩下的病人只好請人接手。工作再忙，午餐也要吃：照顧好自己，才照顧得了病人。'
+      : S.collapsed
       ? '你趴在辦公室睡著了，怎麼叫都叫不醒，只好請同事來接手剩下的病人。再忙，也要找空檔喝水、吃飯、歇一下：照顧好自己，才照顧得了病人。'
       : '聽力檢查看起來只是戴上耳機、按按鈕，但每一位病人背後，都有要判斷的事：這是需要馬上處理的急症，還是可以慢慢調整的日常？電話裡的每一通，也都得在幾句話裡分辨輕重。';
-    S.result = `我在《${GAME.title}》${GAME.edition}上了一天${SHIFT_NAME[S.shift]}：完成 ${seen.length}/${tonight.length} 位病人，被投訴 ${S.complaints} 次，病人好感度 ${avgFav} 分${overtime ? `，加班 ${overtime} 分鐘` : ''}${S.collapsed ? '，累倒了' : ''}。`;
+    S.result = `我在《${GAME.title}》${GAME.edition}上了一天${SHIFT_NAME[S.shift]}：完成 ${seen.length}/${tonight.length} 位病人，被投訴 ${S.complaints} 次，病人好感度 ${avgFav} 分${overtime ? `，加班 ${overtime} 分鐘` : ''}${S.collapsed ? '，累倒了' : S.hypo ? '，低血糖送急診' : ''}。`;
     $('handover').hidden = false;
   }
 
@@ -2619,7 +2621,7 @@ async function boot() {
       if (S.energy < 10 && !S.warned10) { S.warned10 = true; toast('精力剩 10%……眼皮好重。再不休息，就要撐不住了。', 5); }
       // hunger: said once as it bites and once when it is empty; eating again resets it
       if (S.full < 20 && !S.hungry20) { S.hungry20 = true; toast('肚子好餓，頭有點暈……餓著做事，精力掉得比較快。', 5); }
-      if (S.full <= 0 && !S.hungry0) { S.hungry0 = true; toast('餓到手在發抖。再不吃東西，精力會掉得更快。', 5); }
+      if (S.full <= 8 && !S.hungry0) { S.hungry0 = true; toast('餓到手在發抖，快低血糖了！再不吃東西，就要被送急診。', 6); }
       if (S.full >= 30) S.hungry20 = S.hungry0 = false;
       // a full bladder: it wakes a sleeping doctor, and nags an awake one until they go (never at a bed)
       if (S.bladder < 100) S.bladFullAt = null;
@@ -2633,6 +2635,7 @@ async function boot() {
           toast(pickN(['憋不住了！快去廁所！', '尿意已經滿了，走路都要夾著走……快去廁所！', '再不去廁所，真的要漏出來了！'], 1)[0], 4);
         }
       }
+      if (S.full <= 0 && !S.ended && !S.hypo) { S.hypo = true; keys.clear(); endShift(); }
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
