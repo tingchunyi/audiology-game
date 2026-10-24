@@ -31,7 +31,7 @@ const YAW = THREE.MathUtils.degToRad(35), PITCH = THREE.MathUtils.degToRad(40);
 
 // What the game is called, and the line that says what it was made from. A game made from this
 // template keeps CREDIT on its start card and its summary (see README.md, 授權).
-const GAME = { title: '聽力師上班的一天', edition: '聽力室版', site: location.host };
+const GAME = { title: '社畜體驗營．聽力師的一天', edition: '', site: location.host };
 const CREDIT = { text: '以《我熱愛值班》範本製作', url: 'https://drcharming.net/' };
 
 try {
@@ -2077,7 +2077,7 @@ async function boot() {
     const overtime = Math.max(0, Math.round(Math.min(S.t, END) - OFF));
     const all = tonight.length > 0 && seen.length === tonight.length;
     const bad = S.collapsed || S.infected || S.hypo || S.gameover;
-    document.querySelector('#handover .mark').textContent = `${GAME.title} · ${GAME.edition} · ${SHIFT_NAME[S.shift]}${S.duty ? ' · 值班日' : ' · 非值班日'}`;
+    document.querySelector('#handover .mark').textContent = `${GAME.title} · ${SHIFT_NAME[S.shift]}${S.duty ? ' · 值班日' : ' · 非值班日'}`;
     $('hStamp').hidden = S.shift !== 'hard';
     if (S.shift === 'hard') drawStamp($('hStamp'), '#cf2027');
     $('hWhen').textContent = `${fmt(S.t)} · ${S.gameover ? '今天結束了' : S.collapsed ? '累倒了' : S.hypo ? '送急診' : S.infected ? '請假看醫生' : overtime ? `加班 ${overtime} 分鐘後下班` : '準時下班'}`;
@@ -2106,7 +2106,7 @@ async function boot() {
       : S.collapsed
       ? '你趴在辦公室睡著了，怎麼叫都叫不醒，只好請同事來接手剩下的病人。再忙，也要找空檔喝水、吃飯、歇一下：照顧好自己，才照顧得了病人。'
       : '聽力檢查看起來只是戴上耳機、按按鈕，但每一位病人背後，都有要判斷的事：這是需要馬上處理的急症，還是可以慢慢調整的日常？電話裡的每一通，也都得在幾句話裡分辨輕重。';
-    S.result = `我在《${GAME.title}》${GAME.edition}上了一天${SHIFT_NAME[S.shift]}：完成 ${seen.length}/${tonight.length} 位病人，被投訴 ${S.complaints} 次，病人好感度 ${avgFav} 分${overtime ? `，加班 ${overtime} 分鐘` : ''}${S.collapsed ? '，累倒了' : S.hypo ? '，低血糖送急診' : ''}。`;
+    S.result = `我在《${GAME.title}》上了一天${SHIFT_NAME[S.shift]}：完成 ${seen.length}/${tonight.length} 位病人，被投訴 ${S.complaints} 次，病人好感度 ${avgFav} 分${overtime ? `，加班 ${overtime} 分鐘` : ''}${S.collapsed ? '，累倒了' : S.hypo ? '，低血糖送急診' : ''}。`;
     $('handover').hidden = false;
   }
 
@@ -2129,7 +2129,7 @@ async function boot() {
   });
   function shareText() {
     const badge = $('hBadge').textContent;
-    return [`🌙 ${GAME.title}｜${GAME.edition}・${SHIFT_NAME[S.shift]}`, $('hWhen').textContent, $('hTitle').textContent,
+    return [`🌙 ${GAME.title}｜${SHIFT_NAME[S.shift]}`, $('hWhen').textContent, $('hTitle').textContent,
       ...summaryStats().map(([k, v, u]) => `・${k} ${v}${u ? ` ${u}` : ''}`),
       badge, `你撐得過一晚嗎？👉 ${shareUrl()}`, CREDIT.text].join('\n');
   }
@@ -2166,8 +2166,8 @@ async function boot() {
     const glow = g.createRadialGradient(W / 2, 560, 40, W / 2, 560, 560); glow.addColorStop(0, 'rgba(69, 227, 204, .22)'); glow.addColorStop(1, 'rgba(69, 227, 204, 0)');
     g.fillStyle = glow; g.fillRect(0, 0, W, 1150);
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.fillStyle = '#45e3cc'; g.font = `700 36px ${font}`; g.fillText(`${GAME.edition} · ${SHIFT_NAME[S.shift]}`, W / 2, 118);
-    g.fillStyle = '#eef3f6'; g.font = `900 100px ${font}`; g.fillText(GAME.title, W / 2, 228);
+    g.fillStyle = '#45e3cc'; g.font = `700 36px ${font}`; g.fillText(`${SHIFT_NAME[S.shift]}`, W / 2, 118);
+    g.fillStyle = '#eef3f6'; g.font = `900 100px ${font}`; g.fillText(GAME.title, W / 2, 228, W - 80);
     // the doctor, as on the summary
     const px = 250, py = 280, pw = 580, ph = 600, img = new Image();
     img.src = $('hPgy').src;
