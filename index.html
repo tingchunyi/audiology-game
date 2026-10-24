@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#05080d">
+  <title>聽力師上班的一天 · 聽力室版</title>
+  <meta name="description" content="走進聽力中心上一整天班：電話會響、病人在候診區等著、午餐放到涼掉都還沒吃。用選的決定怎麼做，順便認識聽力檢查。">
+  <!-- link previews (LINE, Facebook, IG): put your own address and picture here once the game is online
+  <meta property="og:url" content="https://example.com/">
+  <meta property="og:image" content="https://example.com/og.jpg"> -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="聽力師上班的一天 · 聽力室版">
+  <meta property="og:description" content="走進聽力中心上一整天班：電話會響、病人在候診區等著、午餐放到涼掉都還沒吃。">
+  <!-- no tab icon of its own: put yours here (an empty one keeps the browser from asking for /favicon.ico) -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="game/game.css">
+</head>
+<body class="game-page">
+  <div class="frame" id="frame" tabindex="0" aria-label="遊戲畫面：點一下後可以用鍵盤操作">
+    <canvas id="view"></canvas>
+    <div class="loading" id="loading">正在蓋聽力中心…</div>
+    <div class="layer">
+      <div class="sleepfx" id="sleep" hidden>
+        <div class="sleepcard with-me">
+          <img class="me" id="sleepMe" src="assets/game/char/pgy_m_sleepy.svg" alt="">
+          <header><b>小憩中</b><span id="sleepPct">0%</span></header>
+          <div class="bar"><i id="sleepBar"></i></div>
+          <p>精力慢慢回來，時間也過得比較快。按 <span class="key">E</span> 起床。</p>
+        </div>
+      </div>
+      <div id="marks"></div>
+
+      <div class="hud-time"><span class="ward" id="hudWard">聽力中心 · 門診日</span><b class="clock" id="clock">08:00</b><span class="sub" id="untilHandover">距離下班 9 小時 30 分</span></div>
+      <div class="hud-right">
+        <div class="meters">
+          <div class="meter"><span>精力</span><div class="bar"><i id="mEnergy"></i></div><em id="tEnergy">45%</em></div>
+          <div class="meter"><span>肚子</span><div class="bar"><i id="mFull"></i></div><em id="tFull">沒吃午餐</em></div>
+          <div class="meter"><span>尿意</span><div class="bar"><i id="mBladder"></i></div><em id="tBladder">62%</em></div>
+          <div class="meter" id="mIntRow" hidden><span>敏心</span><div class="bar"><i id="mInt"></i></div><em id="tInt">100%</em></div>
+          <div class="meter"><span>同事</span><div class="bar"><i id="mColl"></i></div><em id="tColl">100%</em></div>
+        </div>
+        <div class="hud-btns"><button class="hbtn" id="btnPause" type="button"><span class="key">P</span>暫停</button><button class="hbtn" id="btnMap" type="button"><span class="key">M</span>全景</button><button class="hbtn" id="btnBreak" type="button" title="讓同事去吃點心、喝咖啡，30 分鐘"><span class="key">B</span>同事休息</button><button class="hbtn" id="btnInt" type="button" hidden title="讓敏心去吃點心、喝咖啡，30 分鐘"><span class="key">N</span>敏心休息</button><button class="hbtn" id="btnEnd" type="button">下班</button></div>
+        <aside class="hud-calls" id="calls"></aside>
+      </div>
+      <div class="goal" id="goal"></div>
+      <div class="toast" id="toast" hidden>
+        <span class="avatar" id="toastAvatar" hidden></span>
+        <span id="toastText"></span>
+      </div>
+
+      <div class="eat with-me" id="eat" hidden>
+        <img class="me" id="eatMe" src="assets/game/char/pgy_m_eating.svg" alt="">
+        <header><b id="eatTitle">午餐便當 · 還溫的</b><span id="eatPct">0%</span></header>
+        <div class="bar"><i id="eatBar"></i></div>
+        <p>邊吃邊回血。按 <span class="key">E</span> 先不吃了。</p>
+      </div>
+
+      <!-- 嬰幼兒視覺增強聽力檢查 (VRA) 小遊戲：聲音一響，寶寶轉頭，就開那一側的玩具 -->
+      <div class="vra" id="vra" hidden data-turn="0" data-toy="0" data-phase="idle">
+        <svg class="vra-scene" viewBox="0 0 800 400" role="img" aria-label="媽媽抱著寶寶坐在遠處，左右各有一個視覺增強玩具">
+          <defs>
+            <linearGradient id="vWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27384a"/><stop offset="1" stop-color="#1a2735"/></linearGradient>
+            <radialGradient id="vGlow"><stop offset="0" stop-color="#ffe27a" stop-opacity=".9"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+          </defs>
+          <rect width="800" height="400" fill="url(#vWall)"/>
+          <rect y="300" width="800" height="100" fill="#141d27"/>
+          <!-- mother and baby, far in the middle -->
+          <g id="vMom">
+            <rect x="322" y="150" width="156" height="150" rx="52" fill="#7d6fa8"/>
+            <circle cx="400" cy="108" r="32" fill="#f1c9a5"/>
+            <path d="M366 106c0-30 68-30 68 0c-10-16-58-16-68 0z" fill="#3c2a2a"/>
+            <rect x="360" y="215" width="80" height="85" rx="26" fill="#6a5d95"/>
+          </g>
+          <g id="vBaby">
+            <rect x="372" y="206" width="56" height="62" rx="22" fill="#ffd9b8"/>
+            <rect x="378" y="212" width="44" height="50" rx="16" fill="#8fd3c8"/>
+            <g id="vHead">
+              <circle cx="400" cy="180" r="30" fill="#ffd9b8"/>
+              <path d="M374 172c4-18 48-18 52 0c-12-8-40-8-52 0z" fill="#5a4636"/>
+              <g class="vcable"><path d="M369 184q-12 22-6 52" stroke="#e8edf2" stroke-width="2" fill="none"/><path d="M431 184q12 22 6 52" stroke="#e8edf2" stroke-width="2" fill="none"/></g>
+              <circle cx="368" cy="184" r="5" fill="#45e3cc"/><circle cx="432" cy="184" r="5" fill="#45e3cc"/>
+              <g class="vpupils"><circle cx="390" cy="180" r="6" fill="#fff"/><circle cx="410" cy="180" r="6" fill="#fff"/><circle class="pp" cx="390" cy="180" r="3" fill="#222"/><circle class="pp" cx="410" cy="180" r="3" fill="#222"/></g>
+              <path d="M392 194q8 6 16 0" stroke="#b86a5a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+            </g>
+          </g>
+          <!-- the two reinforcers: a dark box with a toy inside that lights up -->
+          <g id="vToyL" class="vtoy"><rect x="90" y="140" width="130" height="150" rx="10" fill="#0e151d" stroke="#3a4b5c" stroke-width="3"/>
+            <circle class="lit-glow" cx="155" cy="215" r="80" fill="url(#vGlow)"/>
+            <g class="lit"><circle cx="155" cy="225" r="26" fill="#c98a54"/><circle cx="136" cy="198" r="10" fill="#c98a54"/><circle cx="174" cy="198" r="10" fill="#c98a54"/><circle cx="147" cy="220" r="3" fill="#222"/><circle cx="163" cy="220" r="3" fill="#222"/><ellipse cx="155" cy="232" rx="8" ry="6" fill="#e8c9a0"/></g></g>
+          <g id="vToyR" class="vtoy"><rect x="580" y="140" width="130" height="150" rx="10" fill="#0e151d" stroke="#3a4b5c" stroke-width="3"/>
+            <circle class="lit-glow" cx="645" cy="215" r="80" fill="url(#vGlow)"/>
+            <g class="lit"><circle cx="645" cy="225" r="26" fill="#e7c847"/><circle cx="626" cy="198" r="10" fill="#e7c847"/><circle cx="664" cy="198" r="10" fill="#e7c847"/><circle cx="637" cy="220" r="3" fill="#222"/><circle cx="653" cy="220" r="3" fill="#222"/><path d="M638 232q7 6 14 0" stroke="#222" stroke-width="2" fill="none"/></g></g>
+        </svg>
+        <div class="vra-hud">
+          <span id="vraOk">✓ 0 / 3</span><span id="vraMiss">✗ 0 / 3</span><span>耐心 <b id="vraPat">100</b></span>
+        </div>
+        <p class="vra-msg" id="vraMsg" aria-live="polite"></p>
+        <!-- the audiometer in the foreground -->
+        <div class="vra-desk">
+          <div class="vra-timer"><i id="vraBar"></i></div>
+          <div class="vra-meter">
+            <div class="vra-lcd"><b>聽力檢查儀</b><small>VRA · 聲場 · 嗶嗶</small></div>
+            <i class="led" aria-hidden="true"></i><span class="vra-knobs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <button class="btn go" id="vraL" type="button"><span class="key">←</span> 左邊玩具</button>
+            <button class="btn go" id="vraR" type="button">右邊玩具 <span class="key">→</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 幼兒遊戲式聽力檢查（積木）小遊戲：聲音響了孩子有沒有反應？沒聲音卻在玩？ -->
+      <div class="vra blk" id="blk" hidden data-act="idle" data-tower="1" data-tone="0" data-phase="idle">
+        <svg class="vra-scene" viewBox="0 0 800 400" role="img" aria-label="小男孩戴著耳罩式耳機坐在桌子前，桌上有一堆積木">
+          <defs><linearGradient id="bWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
+          <rect width="800" height="400" fill="url(#bWall)"/>
+          <rect y="310" width="800" height="90" fill="#141d27"/>
+          <!-- the boy, far in the middle, facing us -->
+          <g id="bBoy">
+            <rect x="372" y="190" width="56" height="88" rx="22" fill="#e0773c"/>
+            <g id="bArmL"><rect x="352" y="198" width="20" height="62" rx="10" fill="#e0773c"/><circle cx="362" cy="262" r="9" fill="#ffd9b8"/></g>
+            <g id="bArmR"><rect x="428" y="198" width="20" height="62" rx="10" fill="#e0773c"/><circle cx="438" cy="262" r="9" fill="#ffd9b8"/></g>
+            <g id="bHead">
+              <circle cx="400" cy="158" r="32" fill="#ffd9b8"/>
+              <path d="M368 150c3-26 61-26 64 0c-14-9-50-9-64 0z" fill="#3b2a20"/>
+              <g class="bEyes"><circle cx="388" cy="160" r="4" fill="#222"/><circle cx="412" cy="160" r="4" fill="#222"/></g>
+              <path d="M391 175q9 7 18 0" stroke="#b86a5a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+              <!-- over-ear headphones -->
+              <path d="M366 156c0-40 68-40 68 0" stroke="#2b3138" stroke-width="6" fill="none"/>
+              <rect x="358" y="146" width="16" height="30" rx="7" fill="#3a4450"/><rect x="426" y="146" width="16" height="30" rx="7" fill="#3a4450"/>
+            </g>
+          </g>
+          <!-- table and the pile of blocks -->
+          <rect x="290" y="276" width="220" height="16" rx="3" fill="#7b5a3a"/><rect x="305" y="292" width="10" height="40" fill="#5f4329"/><rect x="485" y="292" width="10" height="40" fill="#5f4329"/>
+          <g id="bTower">
+            <rect class="t1" x="384" y="258" width="32" height="18" fill="#e5484d"/>
+            <rect class="t2" x="388" y="240" width="24" height="18" fill="#4aa3ff"/>
+            <rect class="t3" x="386" y="222" width="28" height="18" fill="#ffd24d"/>
+            <rect class="t4" x="390" y="204" width="20" height="18" fill="#5bd98c"/>
+            <rect class="t5" x="388" y="186" width="24" height="18" fill="#c77dff"/>
+          </g>
+          <rect x="318" y="262" width="26" height="14" fill="#5bd98c"/><rect x="350" y="266" width="20" height="10" fill="#4aa3ff"/><rect x="450" y="262" width="26" height="14" fill="#ffd24d"/><rect x="430" y="268" width="18" height="8" fill="#e5484d"/>
+        </svg>
+        <div class="vra-hud"><span id="blkOk">✓ 0 / 5</span><span id="blkMiss">✗ 0 / 5</span><span>耐心 <b id="blkPat">100</b></span></div>
+        <p class="vra-msg" id="blkMsg" aria-live="polite"></p>
+        <div class="vra-desk">
+          <div class="vra-timer"><i id="blkBar"></i></div>
+          <div class="vra-meter blk-meter">
+            <div class="vra-lcd"><b>聽力檢查儀</b><small>遊戲式測聽 · 聲場 · 嗶嗶 <i class="led" aria-hidden="true"></i></small></div>
+            <button class="btn go" id="blkGuide" type="button"><span class="key">1</span> 引導他</button>
+            <button class="btn go" id="blkEnc" type="button"><span class="key">2</span> 鼓勵他</button>
+            <button class="btn go" id="blkFix" type="button"><span class="key">3</span> 糾正他</button>
+            <span class="vra-knobs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- a bed: the nurse, the monitor, what has happened so far, and the choices (public-cases.js) -->
+      <div class="pcase" id="pcase" hidden>
+        <figure class="bs-portrait"><img id="pcNurse" src="assets/game/char/nurse_worried.svg" alt="護士"></figure>
+        <section class="bs-panel" aria-label="床邊">
+          <header class="bs-head">
+            <div><span class="bs-bed red" id="pcBed"></span><b id="pcWho"></b><small id="pcSub"></small></div>
+            <div class="bs-actions"><button class="btn go" id="pcLab" type="button">加做檢查</button><button class="btn" id="pcPause" type="button">暫停</button></div>
+          </header>
+          <div class="pc-monitor" id="pcMonitor" aria-label="病人狀態"></div>
+          <div class="pc-log" id="pcLog" aria-live="polite"></div>
+          <div class="pc-ask" id="pcAsk">
+            <p id="pcQ"></p>
+            <div class="pc-opts" id="pcOpts"></div>
+          </div>
+          <div class="pc-cpr" id="pcCpr" hidden>
+            <p>照著紅色圓圈的節拍，按 <span class="key">C</span> 或下面的按鈕壓胸。<br>每分鐘 100–120 下，每下壓深 5–6 公分、再讓胸口完全回彈。<br>先連續壓 30 下，中間不要停；接著護理師和急救小組會輪流接手，一直壓到 AED 分析或心跳回來。</p>
+            <div class="pc-beat" id="pcBeat"></div>
+            <div class="pc-cpr-row"><b id="pcCount">0 / 30</b><span id="pcRate"></span></div>
+            <button class="btn red pc-press" id="pcPress" type="button">壓胸 <span class="key">C</span></button>
+          </div>
+        </section>
+      </div>
+
+      <div class="gmodal" id="dialog" hidden>
+        <div class="dim"></div>
+        <figure class="portrait"><img id="dPortrait" src="assets/game/char/nurse_neutral.svg" alt="護士"></figure>
+        <figure class="portrait me"><img id="dMe" src="assets/game/char/pgy_m_sleepy.svg" alt="你"></figure>
+        <div class="gdialog">
+          <span class="name" id="dSpeaker">護士</span>
+          <p class="gline" id="dLine"></p>
+          <div class="after"><button class="btn" id="dTeach" type="button" hidden>進行教學（−30 分鐘、精力 −30） <span class="key">1</span></button><button class="btn go" id="dBack" type="button">好，我回去了 <span class="key">E</span></button></div>
+        </div>
+      </div>
+
+      <div class="gmodal" id="glab" hidden>
+        <div class="dim"></div>
+        <div class="icard labcard">
+          <div class="callhead lab"><span>REPORT · 檢查報告</span><span id="glabWhen"></span></div>
+          <h3 id="glabTitle">床</h3>
+          <table class="lab-table"><thead><tr><th>項目</th><th>結果</th><th>單位</th><th>參考值</th></tr></thead><tbody id="glabRows"></tbody></table>
+          <p class="lab-note" id="glabNote" hidden></p>
+          <small id="glabFoot">H／L：高於／低於一般參考範圍，僅供判讀練習，結果要由專業人員解讀。</small>
+          <div class="row"><button class="btn go" id="glabClose" type="button">看完了 <span class="key">Esc</span></button></div>
+        </div>
+      </div>
+
+      <div class="gmodal with-me" id="recall" hidden>
+        <div class="dim"></div>
+        <figure class="portrait me"><img id="recallMe" src="assets/game/char/pgy_m_nervous.svg" alt="你"></figure>
+        <div class="icard pic">
+          <img class="ipic" id="recallPic" src="assets/game/char/nurse_panic.svg" alt="打電話來的護士">
+          <div class="icol">
+            <div class="callhead"><span class="ring"><i></i>電話響了</span><span id="recallBed"></span></div>
+            <p class="quote" id="recallText"></p>
+            <div class="row"><button class="btn red" id="recallGo" type="button">我馬上過去 <span class="key">E</span></button></div>
+            <small id="recallNote"></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="gmodal with-me" id="interrupt" hidden>
+        <div class="dim"></div>
+        <figure class="portrait me"><img id="interruptMe" src="assets/game/char/pgy_m_eating.svg" alt="你"></figure>
+        <div class="icard pic">
+          <img class="ipic" src="assets/game/char/nurse_shocked.svg" alt="護士嚇到">
+          <div class="icol">
+            <div class="callhead"><span class="ring"><i></i>電話響了</span><span>你午餐才吃到一半</span></div>
+            <p class="quote" id="iText"></p>
+            <div class="row"><button class="btn red" id="iGo" type="button">放下筷子就去</button><button class="btn" id="iBite" type="button">再扒兩口</button></div>
+            <small>扒兩口可以多回一點精力，但護士會等比較久。</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="gmodal with-me" id="scall" hidden>
+        <div class="dim"></div>
+        <figure class="portrait me"><img id="scallMe" src="assets/game/char/pgy_m_sleepy.svg" alt="你"></figure>
+        <div class="icard pic wide">
+          <img class="ipic" id="scPic" src="assets/game/char/nurse_neutral.svg" alt="打電話來的護士">
+          <div class="icol">
+            <div class="callhead"><span class="ring"><i></i>電話響了</span><span id="scWhen"></span></div>
+            <p class="quote" id="scText"></p>
+            <div class="row"><button class="btn red" id="scGo" type="button">起床去看</button><button class="btn" id="scPhone" type="button"></button><button class="btn" id="scSleep" type="button">繼續睡</button></div>
+            <small id="scNote"></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="gmodal pdeath" id="pdeath" hidden>
+        <div class="dim"></div>
+        <div class="icard deathcard" role="dialog" aria-modal="true" aria-labelledby="pdTitle">
+          <span class="when" id="pdWhen"></span>
+          <h3 id="pdTitle"></h3>
+          <p id="pdText"></p>
+          <ol class="pd-timeline" id="pdTimeline"></ol>
+          <div class="tipcard" id="pdCard"></div>
+          <div class="row"><button class="btn go" id="pdRetry" type="button">從這位病人重來</button><button class="btn" id="pdAgain" type="button">重新開始這一天</button></div>
+        </div>
+      </div>
+
+      <div class="gmodal" id="handover" hidden>
+        <div class="dim"></div>
+        <div class="handover">
+          <div class="who"><img id="hPgy" src="assets/game/char/pgy_m_neutral.svg" alt="你"></div>
+          <div class="main">
+            <span class="when" id="hWhen">17:30 · 下班</span>
+            <h3 id="hTitle">你撐過今天了</h3>
+            <!-- 大爛班's red stamp, slanted over the numbers (drawn by game.js, shown on that shift only) -->
+            <div class="stats-wrap"><div class="stats" id="hStats"></div><canvas class="stamp" id="hStamp" width="460" height="200" role="img" aria-label="大爛班" hidden></canvas></div>
+            <ol class="caselist" id="hCases"></ol>
+            <span class="mark">聽力師上班的一天 · 聽力室版</span>
+            <p class="credit"></p>
+          </div>
+          <div class="side">
+            <div class="score"><b id="hScore">0</b><span>今天被電話打斷（次）</span></div>
+            <span class="badge" id="hBadge"></span>
+            <div class="chiefrow"><span class="avatar" id="hChiefAvatar"></span><p class="chief"><small>資深聽力師的心聲</small><span id="hChief"></span></p></div>
+            <div class="actions"><button class="btn go" id="hAgain" type="button">再上一天班</button><button class="btn go" id="hShare" type="button">分享圖卡</button><button class="btn" id="hCopy" type="button">複製文字</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- the night as a story-sized card: shared through the phone's share sheet, or saved -->
+      <div class="gmodal" id="share" hidden>
+        <div class="dim"></div>
+        <div class="sharebox">
+          <canvas id="shareCanvas" width="1080" height="1920" aria-label="今天的結果圖卡"></canvas>
+          <p class="share-hint" id="shareHint"></p>
+          <div class="share-actions"><button class="btn go" id="shareGo" type="button">分享</button><button class="btn" id="shareSave" type="button">下載圖片</button><button class="btn" id="shareClose" type="button">關閉 <span class="key">Esc</span></button></div>
+        </div>
+      </div>
+
+      <div class="start" id="start" hidden>
+        <div class="card">
+          <div class="lhs">
+            <p class="eyebrow" id="gEyebrow">聽力師上班的一天 · 聽力室版</p>
+            <h1 id="gTitle">門診日，08:00 開診</h1>
+            <p id="gIntro">你是今天的臨床聽力師，和另一位同事一起顧三間聽力室，從早上八點上到下午五點半。候診區的病人在等你，電話也會響：有的只是小事，有的需要你馬上處理。喝水、吃午餐、上廁所，都得自己找空檔。</p>
+            <dl id="gKeys">
+              <dt><span class="key">↑</span><span class="key">↓</span><span class="key">←</span><span class="key">→</span></dt><dd>走路（按住 Shift 用跑的）</dd>
+              <dt><span class="key">E</span></dt><dd>看病人、接電話、吃點心、裝水喝、小憩、上廁所</dd>
+              <dt><span class="key">1</span><span class="key">2</span><span class="key">3</span></dt><dd>在診間裡選你要做的事（也可以直接點）</dd>
+              <dt><span class="key">C</span></dt><dd>在茶水間飲水機旁沖咖啡</dd>
+              <dt><span class="key">M</span></dt><dd>全景：看整個聽力中心，再按一次回來</dd>
+              <dt><span class="key">P</span></dt><dd>暫停</dd>
+            </dl>
+          </div>
+          <div class="rhs">
+            <label class="sf full"><span>暱稱（必填）</span><input id="gName" type="text" maxlength="40" autocomplete="off" placeholder="例如：小明" required></label>
+            <p class="sf-hint" id="gHint" hidden></p>
+            <fieldset class="shift" id="gShift">
+              <legend>今天是：</legend>
+              <label><input type="radio" name="shift" value="normal" checked><b>普通的一天</b><small>病人 3–4 位、電話 4–6 通，精力消耗得較慢</small></label>
+              <label class="hard"><input type="radio" name="shift" value="hard"><b>吃到鳳梨的一天</b><small>病人 5–6 位、電話 7–8 通，很忙又很炸，精力消耗得特別快</small></label>
+            </fieldset>
+            <fieldset class="shift" id="gDuty">
+              <legend>今天的班別：</legend>
+              <label><input type="radio" name="duty" value="duty" checked><b>值班日</b><small>午休（12:00–13:00）的電話要自己接</small></label>
+              <label><input type="radio" name="duty" value="off"><b>非值班日</b><small>午休前段的電話由同事接</small></label>
+            </fieldset>
+            <p>選你今天的樣子：</p>
+            <div class="pick">
+              <button type="button" data-pgy="m"><img src="assets/game/char/pgy_m_neutral.svg" alt=""><span>男聽力師</span></button>
+              <button type="button" data-pgy="f"><img src="assets/game/char/pgy_f_neutral.svg" alt=""><span>女聽力師</span></button>
+            </div>
+            <p id="gDisclaimer" class="warn-note">遊戲僅供衛教與體驗，不能取代就醫與專業聽力檢查；耳朵突然聽不到、劇烈暈眩或其他緊急狀況，請立刻就醫或打 119。</p>
+            <p class="credit"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="brief" id="brief" hidden>
+        <header class="brief-head">
+          <div>
+            <p class="eyebrow" id="briefEyebrow">開診</p>
+            <h1 id="briefTitle">今天，聽力中心交給你了</h1>
+            <p class="sub">門診時間 08:00 – 17:30。先看完上班準備事項，準備好再打卡。</p>
+          </div>
+          <div class="brief-clock"><b>08:00</b><span>按下「上班打卡」，時間才會開始走</span></div>
+        </header>
+        <div class="brief-main">
+          <section class="brief-you">
+            <div class="pic"><img id="briefMe" src="assets/game/char/pgy_m_confident.svg" alt="你"></div>
+            <div class="who">
+              <h3>你<small id="briefLevel"></small></h3>
+              <div class="bmeter"><span>精力</span><i style="--v: 82%"></i><em>82%</em></div>
+              <div class="bmeter"><span>肚子</span><i class="warn" style="--v: 35%"></i><em>還沒吃午餐</em></div>
+              <div class="bmeter"><span>尿意</span><i style="--v: 20%"></i><em>20%</em></div>
+            </div>
+          </section>
+          <section class="sheet">
+            <h2>上班準備事項</h2>
+            <div class="from"><span id="briefFrom">值班主管 → 你</span><span>08:00 · 今天要注意的：</span></div>
+            <div class="pts" id="briefList"></div>
+            <footer>今天聽力中心有兩位聽力師：你和你的同事。同事的精力會影響今天的難度；真正的狀況，會從候診區和電話裡來。</footer>
+          </section>
+          <section class="brief-side">
+            <div class="bcard">
+              <div class="label">今天的跟診護士</div>
+              <div class="team" id="briefTeam"></div>
+            </div>
+            <div class="bcard">
+              <div class="label">怎麼玩</div>
+              <div class="bkeys">
+                <div><span class="key">↑↓←→</span>走路（Shift 跑）</div>
+                <div><span class="key">E</span>看病人、接電話、吃、喝、廁所</div>
+                <div><span class="key">1 2 3</span>診間選擇</div>
+                <div><span class="key">C</span>茶水間沖咖啡</div>
+                <div><span class="key">M</span>全景（看整個聽力中心）</div>
+                <div><span class="key">B</span>同事休息</div><div><span class="key">P</span>暫停</div>
+              </div>
+              <div class="label rules">上班守則</div>
+              <ul class="brules">
+                <li class="care"><b>記得照顧好自己：</b>記得喝水、吃點心和午餐、上廁所。精力低於 20% 就跑不動，歸零會累倒，今天就結束了。</li>
+                <li>辦公室的電話會響：有的是小事，有的需要你過去。去看、電話交代，還是先不管，你決定。</li>
+                <li>候診區的病人會一邊等一邊失去耐心。讓他們等太久，情況會變糟，護士也會再打來。</li>
+                <li>檢查和處置可以在診間做選擇。選錯病人會變糟，錯太多可能錯過時機。</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+        <footer class="brief-go">
+          <div class="timeline">
+            <div class="tl-step on"><i></i><b>08:00</b>開診</div><span class="bar"></span>
+            <div class="tl-step"><i></i><b>12:00</b>午餐</div><span class="bar"></span>
+            <div class="tl-step"><i></i><b>14:00</b>下午門診</div><span class="bar"></span>
+            <div class="tl-step"><i></i><b>16:00</b>最難熬</div><span class="bar"></span>
+            <div class="tl-step"><i></i><b>17:30</b>下班</div>
+          </div>
+          <div class="cta">
+            <button class="btn go" id="briefGo" type="button">上班打卡 ▶</button>
+            <small>按下「上班打卡」，時間才開始走；按 Enter 也可以</small>
+          </div>
+        </footer>
+      </div>
+
+      <div class="pause" id="pause" hidden>
+        <div class="pausecard" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+          <b id="pauseTitle">暫停中</b>
+          <p>時間停住了：病人不會失去耐心，電話也不會響。</p>
+          <button class="btn go" id="pauseGo" type="button">繼續上班 ▶</button>
+          <small>按 <span class="key">P</span> 或 Enter 也可以繼續</small>
+        </div>
+      </div>
+
+      <div class="touch" id="touch">
+        <!-- a thumb stick that floats: the thumb goes down anywhere in the lower left and the ring
+             comes to it; drag in any direction; pushed to the rim, the doctor runs -->
+        <div class="stick-zone" id="stickZone" role="application" aria-label="走路的搖桿：在左下角按住，往任何方向滑，推到底用跑的"><div class="stick" id="stick"><div class="stick-knob" id="stickKnob"></div></div></div>
+        <button class="act" id="touchAct" type="button">E</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- phones play sideways: held upright the ward is a sliver, so the game waits to be turned -->
+  <div class="rotate" id="rotate" aria-live="polite">
+    <div class="rot-card">
+      <div class="rot-phone" aria-hidden="true"></div>
+      <b>請把手機轉成橫向</b>
+      <p>這個遊戲要橫著玩。如果畫面沒有跟著轉，請先關掉手機的「直向鎖定」。</p>
+    </div>
+  </div>
+  <script type="module" src="game/game.js"></script>
+</body>
+</html>
