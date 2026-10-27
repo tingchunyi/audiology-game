@@ -1457,7 +1457,7 @@ async function boot() {
   // every frame: patients arriving, calls ringing, patients who ran out of patience going home
   function publicTick() {
     if (!S.sched || S.ended) return;
-    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active;
+    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active && !DRIP.active && !DRIP.active;
     for (const e of S.sched) {
       if (e.done || S.t < e.at) continue;
       if (e.type === 'patient') { e.done = true; arrive(e.id); continue; }
@@ -1730,6 +1730,7 @@ async function boot() {
     el.nextElementSibling.textContent = PC.pat <= 20 ? '快沒了' : PC.pat <= 50 ? '漸漸不耐' : '還可以';
     const v = $('vraPat'); if (v) v.textContent = Math.round(PC.pat);
     const w = $('blkPat'); if (w) w.textContent = Math.round(PC.pat);
+    const w2 = $('dripPat'); if (w2) w2.textContent = Math.round(PC.pat);
   }
   // runs every frame at the bedside: warn at 20, go home at 0
   function patienceCheck() {
@@ -1738,6 +1739,7 @@ async function boot() {
     if (PC.pat <= 0) {
       if (VRA.active) { vraClose(); $('pcase').hidden = false; }
       if (BLK.active) { blkClose(); $('pcase').hidden = false; }
+      if (DRIP.active) { dripClose(); $('pcase').hidden = false; }
       S.complaints++;
       endV2({ end: 'fail', say: c.patOut || c.fail.text });
       return;
@@ -1745,9 +1747,9 @@ async function boot() {
     if (PC.pat <= 20 && !PC.warned) {
       PC.warned = true; PC.state = c.warn.state;
       say('alarm', c.warn.line); plog(c.warn.log, 'warn'); $('pcNurse').src = IMG('nurse_panic');
-      if (!VRA.active && !BLK.active) renderPublicCase();
+      if (!VRA.active && !BLK.active && !DRIP.active) renderPublicCase();
     }
-    if (!VRA.active && !BLK.active) pcPatience();
+    if (!VRA.active && !BLK.active && !DRIP.active) pcPatience();
   }
   // the colleague went on a break (or came back) while this question is open: redraw the choices
   function availCheck() {
@@ -1793,6 +1795,11 @@ async function boot() {
     if (o.minigame === 'block') {
       $('pcase').hidden = true;
       blkStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
+      return;
+    }
+    if (o.minigame === 'drip') {
+      $('pcase').hidden = true;
+      dripStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
       return;
     }
     finishV2(o);
@@ -1881,6 +1888,88 @@ async function boot() {
       }
     }
     if (VRA.active) $('vraPat').textContent = Math.round(PC.pat);
+  }
+
+
+  // ---------- 帶吊點滴的病人走路 ----------
+  // The patient starts at the left and walks to the door on the right. Hold the bag and carry it right at a
+  // steady pace: too fast and the patient cannot keep up (the line pulls), too slow and the corridor jams.
+  // Keep the bag in the green band, or blood runs back up the line. Any meter that fills ends the walk.
+  const DRIP = { active: false, phase: 'idle', bx: 130, by: 110, px: 90, held: false, ptr: null, keys: new Set(), tug: 0, jam: 0, back: 0, done: null, rest: 0, speed: 0, msgAt: 0 };
+  const DRIP_X0 = 90, DRIP_X1 = 700, DRIP_TOP = 52, DRIP_LOW = 156, DRIP_VMAX = 75, DRIP_VMIN = 25, DRIP_LEAD = 40, DRIP_TETHER = 130;
+  const dripSvg = $('dripSvg');
+  function dripPoint(e) {
+    const pt = dripSvg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const m = dripSvg.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : { x: DRIP.bx, y: DRIP.by };
+  }
+  $('dBag').addEventListener('pointerdown', e => {
+    if (!DRIP.active || DRIP.phase === 'over') return;
+    e.preventDefault(); const p = dripPoint(e);
+    DRIP.held = true; DRIP.ptr = { dx: DRIP.bx - p.x, dy: DRIP.by - p.y };
+    try { dripSvg.setPointerCapture(e.pointerId); } catch {}
+  });
+  dripSvg.addEventListener('pointermove', e => {
+    if (!DRIP.held || !DRIP.ptr) return; const p = dripPoint(e);
+    DRIP.tx = p.x + DRIP.ptr.dx; DRIP.ty = p.y + DRIP.ptr.dy;
+  });
+  const dripRelease = () => { DRIP.held = false; DRIP.ptr = null; };
+  dripSvg.addEventListener('pointerup', dripRelease); dripSvg.addEventListener('pointercancel', dripRelease);
+  function dripStart(done) {
+    Object.assign(DRIP, { active: true, phase: 'ready', bx: DRIP_X0 + DRIP_LEAD, by: 110, px: DRIP_X0, held: false, ptr: null, tx: null, ty: null, tug: 0, jam: 0, back: 0, done, rest: 0, speed: 0 });
+    DRIP.keys.clear();
+    $('drip').hidden = false; $('drip').classList.remove('good', 'badhit'); $('dripBar').style.width = '0%';
+    $('dripMsg').textContent = '按住點滴袋，開始陪病人往右邊的出口走。';
+    dripDraw(); frame.focus();
+  }
+  function dripClose() { DRIP.active = false; DRIP.phase = 'idle'; DRIP.held = false; $('drip').hidden = true; }
+  function dripEnd(win, msg) {
+    DRIP.phase = 'over'; DRIP.rest = 1.6; DRIP.held = false;
+    $('drip').classList.toggle('good', win); $('drip').classList.toggle('badhit', !win); $('dripMsg').textContent = msg;
+    const fin = DRIP.done; DRIP.done = () => { dripClose(); fin(win ? 'win' : 'lose'); };
+    dripDraw();
+  }
+  function dripDraw() {
+    const D = DRIP, step = Math.sin(D.px * 0.16) * 6 * Math.min(1, D.speed / 20);
+    $('dPat').setAttribute('transform', `translate(${D.px} 0)`);
+    $('dLegL').setAttribute('transform', `rotate(${step} 0 262)`); $('dLegR').setAttribute('transform', `rotate(${-step} 10 262)`);
+    $('dQueue').setAttribute('transform', `translate(${Math.min(0, D.px - 150)} 0)`);
+    $('dBag').setAttribute('transform', `translate(${D.bx} ${D.by})`);
+    const hx = D.px + 14, hy = 248, ty = D.by + 34, sag = Math.max(0, 60 - Math.abs(D.bx - hx) * 0.4);
+    $('dTube').setAttribute('d', `M${hx} ${hy} Q${(hx + D.bx) / 2} ${Math.max(hy, ty) + sag} ${D.bx} ${ty}`);
+    $('dBlood').setAttribute('d', `M${hx} ${hy} Q${(hx + D.bx) / 2} ${Math.max(hy, ty) + sag} ${D.bx} ${ty}`);
+    $('dBlood').setAttribute('stroke-dasharray', `${D.back} 100`);
+    $('dTube').setAttribute('stroke', D.bx - D.px > DRIP_TETHER - 20 ? '#ff8d92' : '#cfe3f2');
+    $('dTug').style.width = `${Math.min(100, D.tug)}%`; $('dJam').style.width = `${Math.min(100, D.jam)}%`; $('dBack2').style.width = `${Math.min(100, D.back)}%`;
+    $('dripBar').style.width = `${Math.max(0, Math.min(100, (D.px - DRIP_X0) / (DRIP_X1 - DRIP_X0) * 100))}%`;
+  }
+  function dripTick(dt) {
+    const D = DRIP;
+    if (D.phase === 'over') { D.rest -= dt; if (D.rest <= 0) D.done(); return; }
+    dt = Math.min(dt, 0.05);
+    const kx = (D.keys.has('arrowright') || D.keys.has('d') ? 1 : 0) - (D.keys.has('arrowleft') || D.keys.has('a') ? 1 : 0);
+    const ky = (D.keys.has('arrowdown') || D.keys.has('s') ? 1 : 0) - (D.keys.has('arrowup') || D.keys.has('w') ? 1 : 0);
+    const held = D.held || kx || ky || (D.keys.size > 0);
+    if (D.held && D.tx != null) { D.bx = D.tx; D.by = D.ty; }
+    else if (held) { D.bx += kx * 55 * dt; D.by += ky * 90 * dt; }
+    else D.by += 220 * dt;                               // let go: the bag drops
+    D.bx = Math.max(D.px - 30, Math.min(780, D.bx)); D.by = Math.max(20, Math.min(330, D.by));
+    if (D.phase === 'ready') {
+      if (held) { D.phase = 'go'; $('dripMsg').textContent = '穩穩地往右走，不要太快也不要太慢。'; }
+      else { dripDraw(); return; }
+    }
+    // the patient follows the bag, but only so fast
+    const s = Math.max(0, Math.min(DRIP_VMAX, (D.bx - DRIP_LEAD - D.px) * 3));
+    D.px += s * dt; D.speed = s;
+    const gap = D.bx - D.px, tooFar = gap > DRIP_TETHER, tooSlow = s < DRIP_VMIN && D.px < DRIP_X1, high = D.by < DRIP_TOP, low = D.by > DRIP_LOW;
+    const bump = (k, on, up) => { D[k] = on ? D[k] + up * dt : Math.max(0, D[k] - 25 * dt); };
+    bump('tug', tooFar || high, tooFar ? 45 : 30); bump('jam', tooSlow, 28); bump('back', low, 45);
+    const why = tooFar ? '太快了！病人跟不上，管子被拉扯。' : high ? '舉太高了，管子在拉病人的手。' : low ? '袋子太低了，血液會回流到管路！' : tooSlow ? '太慢了，後面的人被擋住了。' : '很好，繼續保持。';
+    if ($('dripMsg').textContent !== why) $('dripMsg').textContent = why;
+    dripDraw();
+    if (D.tug >= 100) dripEnd(false, '拉扯太用力，針頭被扯得很痛，病人叫了出來。');
+    else if (D.jam >= 100) dripEnd(false, '走得太慢，整條走廊被擋住，動線全卡死了。');
+    else if (D.back >= 100) dripEnd(false, '點滴袋舉太低，血液倒流進管路，病人嚇到了。');
+    else if (D.px >= DRIP_X1) dripEnd(true, '順利走進診間，病人安全地坐下了。');
   }
 
   // ---------- 幼兒遊戲式聽力檢查（積木） ----------
@@ -2324,6 +2413,7 @@ async function boot() {
     if (!$('brief').hidden) { if (k === 'enter' || k === ' ') { e.preventDefault(); beginShift(); } return; }
     if (!S.started) return;
     if (S.mode === 'pcase') {
+      if (DRIP.active) { if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's'].includes(k)) { e.preventDefault(); DRIP.keys.add(k); } return; }
       if (BLK.active) { if (['1', '2', '3'].includes(k) && !e.repeat) { e.preventDefault(); blkPress(['guide', 'encourage', 'fix'][Number(k) - 1]); } return; }
       if (VRA.active) { if (['arrowleft', 'a'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(-1); } else if (['arrowright', 'd'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(1); } return; }
       if (PC.cpr && (k === 'c' || k === ' ') && !e.repeat) { e.preventDefault(); cprPress(); }
@@ -2343,7 +2433,7 @@ async function boot() {
     if (k === 'escape' && S.mode === 'false') closeScripted();
     if (k === 'escape' && S.mode === 'chat') closeChat();
   });
-  window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+  window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); DRIP.keys.delete(e.key.toLowerCase()); });
   window.addEventListener('blur', () => keys.clear());
   frame.addEventListener('pointerdown', e => { if (!e.target.closest('input, button, select')) frame.focus(); });
   // the thumb stick: x to the right, y up the screen, each -1..1; past STICK_RUN the doctor runs.
@@ -2573,9 +2663,10 @@ async function boot() {
         : S.mode === 'walk' && !activeIds().length ? PACE.quiet : PACE.walk;
       const gm = dt * rate * PUBLIC_PACE;
       S.t += gm;
-      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
+      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
       if (VRA.active) vraTick(dt);
       if (BLK.active) blkTick(dt);
+      if (DRIP.active) dripTick(dt);
       // asleep, the bar fills from empty in about 3 hours 40 minutes (it used to take under 2), so a
       // night can hold six to eight hours of sleep; everything that spends it -- the hours awake,
       // running, a call that wakes you -- was halved with it on 普通班 (SPEND), and is not on 大爛班
@@ -2639,7 +2730,7 @@ async function boot() {
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
-      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
+      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
     }
     if (!S.paused) pulse += dt;
     if (S.started && !S.ended && !S.paused) updateStaff(dt);

@@ -576,3 +576,13 @@ body.at-bedside .hud-right, body.at-bedside .hud-calls, body.at-bedside .goal { 
 #bTower rect { opacity: 0; transition: opacity .2s; }
 .blk[data-tower="1"] #bTower .t1, .blk[data-tower="2"] #bTower .t1, .blk[data-tower="2"] #bTower .t2, .blk[data-tower="3"] #bTower rect:nth-child(-n+3), .blk[data-tower="4"] #bTower rect:nth-child(-n+4), .blk[data-tower="5"] #bTower rect { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .blk[data-act="idle"] #bHead, .blk[data-act="idle"] #bArmL, .blk[data-act="stack"] #bArmR { animation: none; } }
+
+/* 帶吊點滴的病人走路 */
+.drip-hud { gap: .9em; }
+.dm { display: inline-flex; align-items: center; gap: .4em; font-size: .9em; }
+.dm em { font-style: normal; }
+.dm i { display: inline-block; width: 4.5em; height: .6em; border-radius: .4em; background: #0a1118; overflow: hidden; }
+.dm u { display: block; height: 100%; width: 0; background: #ffd24d; text-decoration: none; }
+.drip-help { margin: 0; text-align: center; font-size: .85em; color: #9fb4c4; }
+.drip[data-phase="over"] .vra-scene { opacity: .9; }
+#dBag:active { cursor: grabbing; }
