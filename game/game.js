@@ -1801,15 +1801,24 @@ async function boot() {
     }
     if (o.minigame === 'door') {
       $('pcase').hidden = true;
-      doorStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
+      tryThrice(doorStart, o);
       return;
     }
     if (o.minigame === 'drip') {
       $('pcase').hidden = true;
-      dripStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
+      tryThrice(dripStart, o);
       return;
     }
     finishV2(o);
+  }
+  // the walking mini-games (老伯過門檻, 吊點滴走路) give three tries; only the last loss counts
+  const GAME_TRIES = 3;
+  function tryThrice(start, o, n = 1) {
+    start(result => {
+      if (result === 'win' || n >= GAME_TRIES) { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); return; }
+      plog(`小遊戲失敗，再試一次（第 ${n + 1} / ${GAME_TRIES} 次）`, 'warn');
+      tryThrice(start, o, n + 1);
+    }, n);
   }
   function finishV2(o) {
     applyFx(o);
@@ -1903,10 +1912,11 @@ async function boot() {
   // too early and he does not see it (he stumbles), too late and he falls. Two stumbles also make him fall.
   const DOOR = { active: false, phase: 'idle', x: 70, t: 0, idx: 0, warned: [false, false, false], hit: 0, stumbles: 0, done: null, rest: 0, say: 0, hop: 0, wob: 0 };
   const DOOR_TH = [293, 493, 693], DOOR_SPEED = 48, DOOR_NEAR = 110, DOOR_LATE = 35, DOOR_END = 760;
-  function doorStart(done) {
+  function doorStart(done, tryNo = 1) {
     Object.assign(DOOR, { active: true, phase: 'go', x: 70, t: 0, idx: 0, warned: [false, false, false], hit: 0, stumbles: 0, done, rest: 0, say: 0, hop: 0, wob: 0 });
     $('door').hidden = false; $('door').classList.remove('good', 'badhit');
-    $('doorMsg').textContent = '老伯慢慢往右走。他快走近門檻時，按「小心門檻」。';
+    $('doorTry').textContent = `第 ${tryNo} / ${GAME_TRIES} 次`;
+    $('doorMsg').textContent = tryNo > 1 ? `再試一次！還有 ${GAME_TRIES - tryNo + 1} 次機會（含這次）。` : '老伯慢慢往右走。他快走近門檻時，按「小心門檻」。';
     doorDraw(); frame.focus();
   }
   function doorClose() { DOOR.active = false; DOOR.phase = 'idle'; $('door').hidden = true; }
@@ -1977,11 +1987,12 @@ async function boot() {
   });
   const dripRelease = () => { DRIP.held = false; DRIP.ptr = null; };
   dripSvg.addEventListener('pointerup', dripRelease); dripSvg.addEventListener('pointercancel', dripRelease);
-  function dripStart(done) {
+  function dripStart(done, tryNo = 1) {
     Object.assign(DRIP, { active: true, phase: 'ready', bx: DRIP_X0 + DRIP_LEAD, by: 110, px: DRIP_X0, held: false, ptr: null, tx: null, ty: null, tug: 0, jam: 0, back: 0, done, rest: 0, speed: 0 });
     DRIP.keys.clear();
     $('drip').hidden = false; $('drip').classList.remove('good', 'badhit'); $('dripBar').style.width = '0%';
-    $('dripMsg').textContent = '按住點滴袋，開始陪病人往右邊的出口走。';
+    $('dripTry').textContent = `第 ${tryNo} / ${GAME_TRIES} 次`;
+    $('dripMsg').textContent = tryNo > 1 ? `再試一次！還有 ${GAME_TRIES - tryNo + 1} 次機會（含這次）。按住點滴袋，陪病人往診間走。` : '按住點滴袋，開始陪病人往診間走。';
     dripDraw(); frame.focus();
   }
   function dripClose() { DRIP.active = false; DRIP.phase = 'idle'; DRIP.held = false; $('drip').hidden = true; }
