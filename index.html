@@ -154,6 +154,31 @@
         </div>
       </div>
 
+      <!-- 老伯過門檻小遊戲：在快走近門檻時按「小心門檻」 -->
+      <div class="vra door" id="door" hidden data-phase="idle">
+        <div class="vra-hud"><span id="doorHit">門檻 0 / 3</span><span id="doorSlip">絆倒 0 / 2</span><span>耐心 <b id="doorPat">100</b></span></div>
+        <svg class="vra-scene" id="doorSvg" viewBox="0 0 800 400" role="img" aria-label="老伯從畫面左邊慢慢走向右邊，地上有三道門檻">
+          <defs><linearGradient id="oWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
+          <rect width="800" height="400" fill="url(#oWall)"/>
+          <rect y="300" width="800" height="100" fill="#141d27"/><rect y="296" width="800" height="6" fill="#33485c"/>
+          <rect x="280" y="284" width="26" height="14" rx="3" fill="#d8b07a"/><rect x="480" y="284" width="26" height="14" rx="3" fill="#d8b07a"/><rect x="680" y="284" width="26" height="14" rx="3" fill="#d8b07a"/>
+          <text x="293" y="278" fill="#ffd24d" font-size="14" text-anchor="middle">門檻</text><text x="493" y="278" fill="#ffd24d" font-size="14" text-anchor="middle">門檻</text><text x="693" y="278" fill="#ffd24d" font-size="14" text-anchor="middle">門檻</text>
+          <g id="oGrandpa">
+            <rect id="oLegL" x="-9" y="262" width="9" height="36" rx="4" fill="#4a3f36"/><rect id="oLegR" x="3" y="262" width="9" height="36" rx="4" fill="#4a3f36"/>
+            <rect x="-14" y="222" width="30" height="48" rx="12" fill="#b78a5a"/>
+            <circle cx="1" cy="206" r="15" fill="#ffd9b8"/>
+            <path d="M-14 202c2-16 28-16 30 0c-8-5-22-5-30 0z" fill="#e6e6e6"/>
+            <g id="oFace"><circle cx="8" cy="206" r="2.2" fill="#222"/><path d="M4 213q5 3 9 0" stroke="#b86a5a" stroke-width="1.6" fill="none"/></g>
+            <rect x="12" y="236" width="4" height="40" rx="2" fill="#7b5a3a"/>
+          </g>
+          <g id="oBubble" opacity="0"><rect x="-70" y="-34" width="140" height="30" rx="14" fill="#fff"/><text x="0" y="-14" fill="#1a2735" font-size="15" text-anchor="middle">老伯，小心門檻！</text></g>
+        </svg>
+        <p class="vra-msg" id="doorMsg" aria-live="polite"></p>
+        <div class="vra-desk"><div class="vra-timer"><i id="doorBar"></i></div>
+          <div class="door-act"><button class="btn go" id="doorBtn" type="button"><span class="key">空白鍵</span> 小心門檻</button></div>
+          <p class="drip-help">老伯慢慢往右走。在他快走近門檻時按「小心門檻」：太早他看不到，太晚他會被絆倒。</p></div>
+      </div>
+
       <!-- 帶吊點滴的病人走路小遊戲：按住點滴袋，高度要夠、速度不快不慢 -->
       <div class="vra drip" id="drip" hidden data-phase="idle">
         <div class="vra-hud drip-hud"><span class="dm"><em>拉扯</em><i><u id="dTug"></u></i></span><span class="dm"><em>擋路</em><i><u id="dJam"></u></i></span><span class="dm"><em>回血</em><i><u id="dBack2"></u></i></span><span>耐心 <b id="dripPat">100</b></span></div>
