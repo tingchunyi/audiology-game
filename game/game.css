@@ -586,3 +586,7 @@ body.at-bedside .hud-right, body.at-bedside .hud-calls, body.at-bedside .goal { 
 .drip-help { margin: 0; text-align: center; font-size: .85em; color: #9fb4c4; }
 .drip[data-phase="over"] .vra-scene { opacity: .9; }
 #dBag:active { cursor: grabbing; }
+
+/* 老伯過門檻 */
+.door-act { display: flex; justify-content: center; margin-bottom: .4em; }
+.door-act .btn { font-size: 1.25em; padding: .7em 2.2em; }

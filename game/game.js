@@ -1457,7 +1457,7 @@ async function boot() {
   // every frame: patients arriving, calls ringing, patients who ran out of patience going home
   function publicTick() {
     if (!S.sched || S.ended) return;
-    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active && !DRIP.active && !DRIP.active;
+    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !DRIP.active;
     for (const e of S.sched) {
       if (e.done || S.t < e.at) continue;
       if (e.type === 'patient') { e.done = true; arrive(e.id); continue; }
@@ -1730,6 +1730,7 @@ async function boot() {
     el.nextElementSibling.textContent = PC.pat <= 20 ? '快沒了' : PC.pat <= 50 ? '漸漸不耐' : '還可以';
     const v = $('vraPat'); if (v) v.textContent = Math.round(PC.pat);
     const w = $('blkPat'); if (w) w.textContent = Math.round(PC.pat);
+    const w3 = $('doorPat'); if (w3) w3.textContent = Math.round(PC.pat);
     const w2 = $('dripPat'); if (w2) w2.textContent = Math.round(PC.pat);
   }
   // runs every frame at the bedside: warn at 20, go home at 0
@@ -1740,6 +1741,7 @@ async function boot() {
       if (VRA.active) { vraClose(); $('pcase').hidden = false; }
       if (BLK.active) { blkClose(); $('pcase').hidden = false; }
       if (DRIP.active) { dripClose(); $('pcase').hidden = false; }
+      if (DOOR.active) { doorClose(); $('pcase').hidden = false; }
       S.complaints++;
       endV2({ end: 'fail', say: c.patOut || c.fail.text });
       return;
@@ -1747,9 +1749,9 @@ async function boot() {
     if (PC.pat <= 20 && !PC.warned) {
       PC.warned = true; PC.state = c.warn.state;
       say('alarm', c.warn.line); plog(c.warn.log, 'warn'); $('pcNurse').src = IMG('nurse_panic');
-      if (!VRA.active && !BLK.active && !DRIP.active) renderPublicCase();
+      if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active) renderPublicCase();
     }
-    if (!VRA.active && !BLK.active && !DRIP.active) pcPatience();
+    if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active) pcPatience();
   }
   // the colleague went on a break (or came back) while this question is open: redraw the choices
   function availCheck() {
@@ -1795,6 +1797,11 @@ async function boot() {
     if (o.minigame === 'block') {
       $('pcase').hidden = true;
       blkStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
+      return;
+    }
+    if (o.minigame === 'door') {
+      $('pcase').hidden = true;
+      doorStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
       return;
     }
     if (o.minigame === 'drip') {
@@ -1890,6 +1897,62 @@ async function boot() {
     if (VRA.active) $('vraPat').textContent = Math.round(PC.pat);
   }
 
+
+  // ---------- 老伯過門檻 ----------
+  // The old man walks right, slowly. Three thresholds lie ahead. Press 小心門檻 when he is close to one:
+  // too early and he does not see it (he stumbles), too late and he falls. Two stumbles also make him fall.
+  const DOOR = { active: false, phase: 'idle', x: 70, t: 0, idx: 0, warned: [false, false, false], hit: 0, stumbles: 0, done: null, rest: 0, say: 0, hop: 0, wob: 0 };
+  const DOOR_TH = [293, 493, 693], DOOR_SPEED = 48, DOOR_NEAR = 110, DOOR_LATE = 35, DOOR_END = 760;
+  function doorStart(done) {
+    Object.assign(DOOR, { active: true, phase: 'go', x: 70, t: 0, idx: 0, warned: [false, false, false], hit: 0, stumbles: 0, done, rest: 0, say: 0, hop: 0, wob: 0 });
+    $('door').hidden = false; $('door').classList.remove('good', 'badhit');
+    $('doorMsg').textContent = '老伯慢慢往右走。他快走近門檻時，按「小心門檻」。';
+    doorDraw(); frame.focus();
+  }
+  function doorClose() { DOOR.active = false; DOOR.phase = 'idle'; $('door').hidden = true; }
+  function doorEnd(win, msg) {
+    DOOR.phase = 'over'; DOOR.rest = 1.6;
+    $('door').classList.toggle('good', win); $('door').classList.toggle('badhit', !win); $('doorMsg').textContent = msg;
+    const fin = DOOR.done; DOOR.done = () => { doorClose(); fin(win ? 'win' : 'lose'); };
+    doorDraw();
+  }
+  function doorDraw() {
+    const D = DOOR, walk = D.phase === 'go' && D.t > 1.2, sw = walk ? Math.sin(D.x * 0.12) * 7 : 0;
+    const hop = D.hop > 0 ? -Math.sin(D.hop / 0.5 * Math.PI) * 14 : 0, tilt = D.wob > 0 ? Math.sin(D.wob * 30) * 10 : 0;
+    const fall = D.phase === 'over' && $('door').classList.contains('badhit') ? 80 : 0;
+    $('oGrandpa').setAttribute('transform', `translate(${D.x} ${hop}) rotate(${fall || tilt} 0 298)`);
+    $('oLegL').setAttribute('transform', `rotate(${sw} 0 262)`); $('oLegR').setAttribute('transform', `rotate(${-sw} 10 262)`);
+    $('oBubble').setAttribute('transform', `translate(${D.x} 190)`); $('oBubble').setAttribute('opacity', D.say > 0 ? 1 : 0);
+    $('doorHit').textContent = `門檻 ${D.hit} / 3`; $('doorSlip').textContent = `絆倒 ${D.stumbles} / 2`;
+    $('doorBar').style.width = `${Math.max(0, Math.min(100, (D.x - 70) / (DOOR_END - 70) * 100))}%`;
+  }
+  function doorPress() {
+    const D = DOOR; if (!D.active || D.phase !== 'go' || D.t < 1.2 || D.idx > 2 || D.warned[D.idx]) return;
+    const dist = DOOR_TH[D.idx] - D.x; D.warned[D.idx] = true; D.say = 0.9;
+    if (dist > DOOR_NEAR) {
+      D.stumbles++; D.wob = 0.6;
+      $('doorMsg').textContent = '太早了！老伯還沒看到你在說什麼，走到門檻時絆了一下。';
+      if (D.stumbles >= 2) doorEnd(false, '老伯連絆了兩次，沒站穩，摔倒了。');
+    } else {
+      D.hit++; $('doorMsg').textContent = '老伯看著你點點頭，抬腳跨了過去。';
+    }
+    doorDraw();
+  }
+  function doorTick(dt) {
+    const D = DOOR;
+    if (D.phase === 'over') { D.rest -= dt; if (D.rest <= 0) D.done(); return; }
+    dt = Math.min(dt, 0.05); D.t += dt; D.say = Math.max(0, D.say - dt); D.hop = Math.max(0, D.hop - dt); D.wob = Math.max(0, D.wob - dt);
+    if (D.t < 1.2) { doorDraw(); return; }
+    D.x += DOOR_SPEED * dt;
+    if (D.idx < 3) {
+      const dist = DOOR_TH[D.idx] - D.x;
+      if (dist < DOOR_LATE && !D.warned[D.idx]) { D.x = DOOR_TH[D.idx] - 6; doorEnd(false, '太晚了！老伯被門檻絆倒，摔在地上。'); return; }
+      if (dist <= 0) { if (D.warned[D.idx] && D.wob <= 0) D.hop = 0.5; D.idx++; }
+    }
+    doorDraw();
+    if (D.x >= DOOR_END) doorEnd(true, '老伯平安跨過三道門檻，走進隔音室。');
+  }
+  $('doorBtn').addEventListener('click', () => { doorPress(); frame.focus(); });
 
   // ---------- 帶吊點滴的病人走路 ----------
   // The patient starts at the left and walks to the door on the right. Hold the bag and carry it right at a
@@ -2401,9 +2464,11 @@ async function boot() {
   const keys = new Set();
   const typing = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
   const MOVE = ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'];
+  // the physical key, so the game works with a Chinese input method on too (e.key is 'Process' or a Zhuyin letter then)
+  const keyOf = e => /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : e.key.toLowerCase();
   window.addEventListener('keydown', e => {
     if (typing(e)) { if (e.key === 'Escape') { e.target.blur(); frame.focus(); } return; }
-    const k = e.key.toLowerCase();
+    const k = keyOf(e);
     if (!$('share').hidden) { if (k === 'escape') { e.preventDefault(); $('share').hidden = true; } return; }
     if (S.ended && k === 's' && !e.repeat && !$('handover').hidden) { e.preventDefault(); openShare(); return; }
     if (S.paused) { if (['p', 'escape', 'enter', ' '].includes(k)) { e.preventDefault(); setPaused(false); } return; }
@@ -2413,6 +2478,7 @@ async function boot() {
     if (!$('brief').hidden) { if (k === 'enter' || k === ' ') { e.preventDefault(); beginShift(); } return; }
     if (!S.started) return;
     if (S.mode === 'pcase') {
+      if (DOOR.active) { if ([' ', 'e', 'enter'].includes(k) && !e.repeat) { e.preventDefault(); doorPress(); } return; }
       if (DRIP.active) { if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's'].includes(k)) { e.preventDefault(); DRIP.keys.add(k); } return; }
       if (BLK.active) { if (['1', '2', '3'].includes(k) && !e.repeat) { e.preventDefault(); blkPress(['guide', 'encourage', 'fix'][Number(k) - 1]); } return; }
       if (VRA.active) { if (['arrowleft', 'a'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(-1); } else if (['arrowright', 'd'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(1); } return; }
@@ -2433,7 +2499,7 @@ async function boot() {
     if (k === 'escape' && S.mode === 'false') closeScripted();
     if (k === 'escape' && S.mode === 'chat') closeChat();
   });
-  window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); DRIP.keys.delete(e.key.toLowerCase()); });
+  window.addEventListener('keyup', e => { const k = keyOf(e); keys.delete(k); DRIP.keys.delete(k); });
   window.addEventListener('blur', () => keys.clear());
   frame.addEventListener('pointerdown', e => { if (!e.target.closest('input, button, select')) frame.focus(); });
   // the thumb stick: x to the right, y up the screen, each -1..1; past STICK_RUN the doctor runs.
@@ -2663,10 +2729,11 @@ async function boot() {
         : S.mode === 'walk' && !activeIds().length ? PACE.quiet : PACE.walk;
       const gm = dt * rate * PUBLIC_PACE;
       S.t += gm;
-      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
+      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active && !DOOR.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
       if (VRA.active) vraTick(dt);
       if (BLK.active) blkTick(dt);
       if (DRIP.active) dripTick(dt);
+      if (DOOR.active) doorTick(dt);
       // asleep, the bar fills from empty in about 3 hours 40 minutes (it used to take under 2), so a
       // night can hold six to eight hours of sleep; everything that spends it -- the hours awake,
       // running, a call that wakes you -- was halved with it on 普通班 (SPEND), and is not on 大爛班
@@ -2730,7 +2797,7 @@ async function boot() {
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
-      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
+      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
     }
     if (!S.paused) pulse += dt;
     if (S.started && !S.ended && !S.paused) updateStaff(dt);
@@ -2760,7 +2827,7 @@ async function boot() {
   $('start').hidden = false;
   // index.html?debug exposes a handle for scripted playtests; on its own it changes nothing but ]
   if (DEBUG) {
-    window.__ward = { S, night, CASES, PC, arrive, VRA, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
+    window.__ward = { S, night, CASES, PC, arrive, VRA, DOOR, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
   }
   requestAnimationFrame(frameLoop);
 }
