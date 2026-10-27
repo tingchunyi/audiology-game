@@ -156,7 +156,7 @@
 
       <!-- 老伯過門檻小遊戲：在快走近門檻時按「小心門檻」 -->
       <div class="vra door" id="door" hidden data-phase="idle">
-        <div class="vra-hud"><span id="doorHit">門檻 0 / 3</span><span id="doorSlip">絆倒 0 / 2</span><span>耐心 <b id="doorPat">100</b></span></div>
+        <div class="vra-hud"><span id="doorTry">第 1 / 3 次</span><span id="doorHit">門檻 0 / 3</span><span id="doorSlip">絆倒 0 / 2</span><span>耐心 <b id="doorPat">100</b></span></div>
         <svg class="vra-scene" id="doorSvg" viewBox="0 0 800 400" role="img" aria-label="老伯從畫面左邊慢慢走向右邊，地上有三道門檻">
           <defs><linearGradient id="oWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
           <rect width="800" height="400" fill="url(#oWall)"/>
@@ -181,7 +181,7 @@
 
       <!-- 帶吊點滴的病人走路小遊戲：按住點滴袋，高度要夠、速度不快不慢 -->
       <div class="vra drip" id="drip" hidden data-phase="idle">
-        <div class="vra-hud drip-hud"><span class="dm"><em>拉扯</em><i><u id="dTug"></u></i></span><span class="dm"><em>擋路</em><i><u id="dJam"></u></i></span><span class="dm"><em>回血</em><i><u id="dBack2"></u></i></span><span>耐心 <b id="dripPat">100</b></span></div>
+        <div class="vra-hud drip-hud"><span id="dripTry">第 1 / 3 次</span><span class="dm"><em>拉扯</em><i><u id="dTug"></u></i></span><span class="dm"><em>擋路</em><i><u id="dJam"></u></i></span><span class="dm"><em>回血</em><i><u id="dBack2"></u></i></span><span>耐心 <b id="dripPat">100</b></span></div>
         <svg class="vra-scene" id="dripSvg" viewBox="0 0 800 400" role="img" aria-label="病人吊著點滴從畫面左邊走向右邊的診間門口">
           <defs><linearGradient id="dWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
           <rect width="800" height="400" fill="url(#dWall)"/>
