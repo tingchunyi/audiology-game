@@ -154,6 +154,48 @@
         </div>
       </div>
 
+      <!-- 帶吊點滴的病人走路小遊戲：按住點滴袋，高度要夠、速度不快不慢 -->
+      <div class="vra drip" id="drip" hidden data-phase="idle">
+        <div class="vra-hud drip-hud"><span class="dm"><em>拉扯</em><i><u id="dTug"></u></i></span><span class="dm"><em>擋路</em><i><u id="dJam"></u></i></span><span class="dm"><em>回血</em><i><u id="dBack2"></u></i></span><span>耐心 <b id="dripPat">100</b></span></div>
+        <svg class="vra-scene" id="dripSvg" viewBox="0 0 800 400" role="img" aria-label="病人吊著點滴從畫面左邊走向右邊的診間門口">
+          <defs><linearGradient id="dWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
+          <rect width="800" height="400" fill="url(#dWall)"/>
+          <rect y="300" width="800" height="100" fill="#141d27"/>
+          <rect y="296" width="800" height="6" fill="#33485c"/>
+          <rect x="0" y="52" width="800" height="104" fill="#4ade80" opacity=".08"/>
+          <line x1="0" x2="800" y1="52" y2="52" stroke="#4ade80" stroke-width="2" stroke-dasharray="8 8" opacity=".7"/>
+          <line x1="0" x2="800" y1="156" y2="156" stroke="#4ade80" stroke-width="2" stroke-dasharray="8 8" opacity=".7"/>
+          <text x="14" y="46" fill="#8ff0b1" font-size="15">點滴袋保持在綠色範圍內</text>
+          <!-- the door -->
+          <rect x="716" y="170" width="70" height="130" rx="4" fill="#0e1822" stroke="#6b8196" stroke-width="3"/>
+          <text x="751" y="160" fill="#cfe9e4" font-size="16" text-anchor="middle">診間</text>
+          <!-- someone waiting behind -->
+          <g id="dQueue"><circle cx="40" cy="236" r="14" fill="#ffd9b8"/><rect x="26" y="250" width="28" height="48" rx="12" fill="#6aa7d8"/></g>
+          <text x="40" y="320" fill="#9fb4c4" font-size="13" text-anchor="middle">後面的人</text>
+          <!-- the patient -->
+          <g id="dPat">
+            <rect id="dLegL" x="-8" y="262" width="9" height="36" rx="4" fill="#3c4a5a"/><rect id="dLegR" x="3" y="262" width="9" height="36" rx="4" fill="#3c4a5a"/>
+            <rect x="-14" y="222" width="30" height="48" rx="12" fill="#9ed0e6"/>
+            <circle cx="1" cy="206" r="15" fill="#ffd9b8"/>
+            <path d="M-14 202c2-16 28-16 30 0c-8-5-22-5-30 0z" fill="#4a4a4a"/>
+            <circle cx="14" cy="248" r="5" fill="#ffd9b8"/>
+          </g>
+          <path id="dTube" d="M0 0" fill="none" stroke="#cfe3f2" stroke-width="3" pathLength="100"/>
+          <path id="dBlood" d="M0 0" fill="none" stroke="#e5303a" stroke-width="4" pathLength="100" stroke-dasharray="0 100"/>
+          <!-- the bag you hold -->
+          <g id="dBag" style="cursor:grab;touch-action:none">
+            <rect x="-34" y="-50" width="68" height="100" fill="transparent"/>
+            <path d="M-17 -34c0-8 34-8 34 0v46c0 12-8 20-17 20s-17-8-17-20z" fill="#e8f6ff" stroke="#8fb5cc" stroke-width="2"/>
+            <path id="dFluid" d="M-14 0h28v12c0 10-7 17-14 17s-14-7-14-17z" fill="#7cc8f0"/>
+            <circle cx="0" cy="-40" r="4" fill="none" stroke="#8fb5cc" stroke-width="2"/>
+            <text x="0" y="-8" fill="#2b5a78" font-size="11" text-anchor="middle">NS</text>
+          </g>
+        </svg>
+        <p class="vra-msg" id="dripMsg" aria-live="polite"></p>
+        <div class="vra-desk"><div class="vra-timer"><i id="dripBar"></i></div>
+          <p class="drip-help">按住點滴袋，往右帶著病人走。不要太快（病人跟不上、管子被拉扯）、不要太慢（擋住動線），袋子要舉在綠色範圍內（太低會回血）。也可以用方向鍵。</p></div>
+      </div>
+
       <!-- a bed: the nurse, the monitor, what has happened so far, and the choices (public-cases.js) -->
       <div class="pcase" id="pcase" hidden>
         <figure class="bs-portrait"><img id="pcNurse" src="assets/game/char/nurse_worried.svg" alt="護士"></figure>
