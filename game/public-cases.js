@@ -146,8 +146,10 @@ export const PREG = {
     first: {
       ask: '孕婦坐著輪椅，手上的塑膠袋裝著嘔吐物。要引導她就位，你先做什麼？',
       options: [
-        { id: 'chair', text: '用輪椅推她進來', grade: 'best', needs: 'colleague', colleague: -20, favor: 5, end: 'done', outcome: 'done',
-          say: '輪椅卡在門口推不動！你找同事一起幫忙，兩個人合力把她推進來。同事累了一點。' },
+        { id: 'chair', text: '用輪椅推她進來', grade: 'best', needs: 'colleague', minigame: 'chair',
+          win: { colleague: -20, favor: 5, end: 'done', outcome: 'done', say: '輪椅卡在門口推不動！你找同事一起幫忙，兩個人合力把輪椅平穩地過了門檻，順利完成檢查。同事累了一點。' },
+          lose: { colleague: -20, favor: -10, end: 'leave', say: '你找同事一起幫忙推輪椅，但過門檻出了狀況，孕婦被嚇到、更不舒服，只想先回家休息。同事累了一點。',
+            why: '輪椅過門檻要兩個人配合：先放好斜板，推的人在靠近門檻時踩輪椅把前輪翹起，拉的人同時把輪椅拉上去。' } },
         { id: 'wait', text: '先讓她吐完', grade: 'best', minigame: 'chair',
           win: { min: 30, favor: 10, end: 'done', outcome: 'done', say: '你陪她吐完、漱口，花了 30 分鐘，她舒服多了。接著兩個人合作，把輪椅平穩地過了門檻，順利完成檢查後離開。' },
           lose: { min: 30, favor: -10, end: 'leave', say: '你陪她吐完、漱口，花了 30 分鐘。但輪椅過門檻出了狀況，孕婦被嚇到、更不舒服，只想先回家休息。',
