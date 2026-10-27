@@ -1457,7 +1457,7 @@ async function boot() {
   // every frame: patients arriving, calls ringing, patients who ran out of patience going home
   function publicTick() {
     if (!S.sched || S.ended) return;
-    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !DRIP.active;
+    const ok = ['walk', 'sleep', 'eat', 'pcase'].includes(S.mode) && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active && !DRIP.active;
     for (const e of S.sched) {
       if (e.done || S.t < e.at) continue;
       if (e.type === 'patient') { e.done = true; arrive(e.id); continue; }
@@ -1730,6 +1730,7 @@ async function boot() {
     el.nextElementSibling.textContent = PC.pat <= 20 ? '快沒了' : PC.pat <= 50 ? '漸漸不耐' : '還可以';
     const v = $('vraPat'); if (v) v.textContent = Math.round(PC.pat);
     const w = $('blkPat'); if (w) w.textContent = Math.round(PC.pat);
+    const w4 = $('chPat'); if (w4) w4.textContent = Math.round(PC.pat);
     const w3 = $('doorPat'); if (w3) w3.textContent = Math.round(PC.pat);
     const w2 = $('dripPat'); if (w2) w2.textContent = Math.round(PC.pat);
   }
@@ -1742,6 +1743,7 @@ async function boot() {
       if (BLK.active) { blkClose(); $('pcase').hidden = false; }
       if (DRIP.active) { dripClose(); $('pcase').hidden = false; }
       if (DOOR.active) { doorClose(); $('pcase').hidden = false; }
+      if (CHAIR.active) { chairClose(); $('pcase').hidden = false; }
       S.complaints++;
       endV2({ end: 'fail', say: c.patOut || c.fail.text });
       return;
@@ -1749,9 +1751,9 @@ async function boot() {
     if (PC.pat <= 20 && !PC.warned) {
       PC.warned = true; PC.state = c.warn.state;
       say('alarm', c.warn.line); plog(c.warn.log, 'warn'); $('pcNurse').src = IMG('nurse_panic');
-      if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active) renderPublicCase();
+      if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) renderPublicCase();
     }
-    if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active) pcPatience();
+    if (!VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) pcPatience();
   }
   // the colleague went on a break (or came back) while this question is open: redraw the choices
   function availCheck() {
@@ -1797,6 +1799,11 @@ async function boot() {
     if (o.minigame === 'block') {
       $('pcase').hidden = true;
       blkStart(result => { $('pcase').hidden = false; finishV2(result === 'win' ? o.win : o.lose); });
+      return;
+    }
+    if (o.minigame === 'chair') {
+      $('pcase').hidden = true;
+      tryThrice(chairStart, o);
       return;
     }
     if (o.minigame === 'door') {
@@ -1906,6 +1913,99 @@ async function boot() {
     if (VRA.active) $('vraPat').textContent = Math.round(PC.pat);
   }
 
+
+  // ---------- 輪椅過門檻 ----------
+  // The woman sits in a wheelchair at the left; a threshold lies in the middle, the exam room beyond it.
+  // Two people take the chair over: one pushes (tips the front wheels up with the foot bar), one pulls.
+  // You are one of them (random), the computer is the other. Lay the ramp first, then time your part.
+  const CHAIR = { active: false, phase: 'idle', role: 'push', cx: 90, t: 0, ramp: false, tiltAt: 0, tilt: 0, tiltT: 0, fail: null, done: null, rest: 0, cross: false };
+  const CH_TH = 404, CH_FRONT = 46, CH_SPEED = 36, CH_RAMP_DIST = 130, CH_NEAR = 90, CH_LATE = 30, CH_REACT = 0.75;
+  const chairDist = () => CH_TH - (CHAIR.cx + CH_FRONT);
+  function chairStart(done, tryNo = 1) {
+    const role = Math.random() < 0.5 ? 'push' : 'pull';
+    Object.assign(CHAIR, { active: true, phase: 'go', role, cx: 90, t: 0, ramp: false, tiltAt: 40 + Math.random() * 35, tilt: 0, tiltT: 0, fail: null, done, rest: 0, cross: false });
+    $('chair').hidden = false; $('chair').classList.remove('good', 'badhit');
+    $('chTry').textContent = `第 ${tryNo} / ${GAME_TRIES} 次`;
+    $('chRole').textContent = role === 'push' ? '你是：推輪椅的人' : '你是：拉輪椅的人';
+    $('chActT').textContent = role === 'push' ? '踩輪椅' : '拉輪椅';
+    $('chRamp').disabled = false;
+    $('chHelp').textContent = role === 'push'
+      ? '先放好斜板。輪椅靠近門檻時按「踩輪椅」把前輪翹起：太早，前面拉的人拉不到；太晚，輪椅會卡在門檻。'
+      : '先放好斜板。後面推的人把輪椅翹起來的瞬間，馬上按「拉輪椅」：太早，輪椅還沒到門檻拉不到；太晚，輪椅會往後滑。';
+    $('chMsg').textContent = tryNo > 1 ? `再試一次！還有 ${GAME_TRIES - tryNo + 1} 次機會（含這次）。你是${role === 'push' ? '推' : '拉'}輪椅的人。` : `輪椅慢慢往門檻移動。先放好斜板！你是${role === 'push' ? '推' : '拉'}輪椅的人。`;
+    chairDraw(); frame.focus();
+  }
+  function chairClose() { CHAIR.active = false; CHAIR.phase = 'idle'; $('chair').hidden = true; }
+  function chairEnd(win, msg, how) {
+    CHAIR.phase = 'over'; CHAIR.rest = 1.7; CHAIR.fail = win ? null : how;
+    $('chair').classList.toggle('good', win); $('chair').classList.toggle('badhit', !win); $('chMsg').textContent = msg;
+    const fin = CHAIR.done; CHAIR.done = () => { chairClose(); fin(win ? 'win' : 'lose'); };
+  }
+  function chairDraw() {
+    const C = CHAIR, lift = C.cross ? -2 : 0;
+    $('cChair').setAttribute('transform', `translate(${C.cx} ${lift}) rotate(${-C.tilt} 0 298)`);
+    $('cRamp').setAttribute('opacity', C.ramp ? 1 : 0);
+    $('cPuller').setAttribute('transform', `translate(${C.cross ? 520 : 470} 0)`);
+    const youX = C.role === 'push' ? C.cx - 62 : 470;
+    $('cYou').setAttribute('transform', `translate(${youX} 186)`);
+    $('chBar').style.width = `${Math.max(0, Math.min(100, (C.cx - 90) / (600 - 90) * 100))}%`;
+  }
+  function chairRamp() {
+    const C = CHAIR; if (!C.active || C.phase !== 'go' || C.ramp || C.t < 0.6) return;
+    C.ramp = true; $('chRamp').disabled = true; $('chMsg').textContent = '斜板放好了。';
+    chairDraw();
+  }
+  function chairCross() {
+    const C = CHAIR; C.cross = true; C.phase = 'cross'; C.tilt = 18;
+    $('chMsg').textContent = C.role === 'push' ? '時機剛好！前輪翹起，前面的人把輪椅拉上了斜板。' : '拉得剛好！輪椅順利上了斜板。';
+  }
+  function chairAct() {
+    const C = CHAIR; if (!C.active || C.phase !== 'go' || C.t < 0.6) return;
+    const d = chairDist();
+    if (!C.ramp) { chairEnd(false, '還沒放斜板就動手，輪椅直接撞上門檻。', 'stuck'); return; }
+    if (C.role === 'push') {
+      if (d > CH_NEAR) { C.tilt = 18; chairEnd(false, '太早了！前面拉的人還沒到位，拉不到輪椅，輪椅過不了門檻。', 'early'); return; }
+      chairCross();
+    } else {
+      if (!C.tiltT) { chairEnd(false, '太早了！輪椅還沒推到門檻處，你拉不到。', 'early'); return; }
+      chairCross();
+    }
+  }
+  function chairTick(dt) {
+    const C = CHAIR;
+    if (C.phase === 'over') {
+      C.rest -= dt;
+      if (C.fail === 'slide') C.cx = Math.max(90, C.cx - 70 * dt);
+      C.tilt = Math.max(0, C.tilt - 25 * dt); chairDraw();
+      if (C.rest <= 0) C.done();
+      return;
+    }
+    dt = Math.min(dt, 0.05); C.t += dt;
+    if (C.t < 0.6) { chairDraw(); return; }
+    if (C.phase === 'cross') {
+      C.cx += 80 * dt;
+      if (CH_TH - (C.cx + CH_FRONT) < -40) C.tilt = Math.max(0, C.tilt - 30 * dt);
+      chairDraw();
+      if (C.cx >= 600) chairEnd(true, '輪椅平穩地過了門檻，進了檢查室。');
+      return;
+    }
+    // phase 'go': the chair rolls toward the threshold
+    const d = chairDist();
+    if (C.role === 'pull' && C.tiltT) {
+      // the pusher has tipped the chair; the front wheels are up -- pull now
+      C.tiltT += dt; C.tilt = 18;
+      if (C.tiltT > CH_REACT) { chairEnd(false, '太晚了！輪椅往後滑了回去。', 'slide'); return; }
+      chairDraw(); return;
+    }
+    C.cx += CH_SPEED * dt;
+    const d2 = chairDist();
+    if (!C.ramp && d2 < CH_RAMP_DIST) { chairEnd(false, '輪椅都快到門檻了，斜板還沒放好！', 'stuck'); return; }
+    if (C.role === 'pull' && C.ramp && d2 <= C.tiltAt) { C.tiltT = 0.001; C.tilt = 18; $('chMsg').textContent = '推的人把輪椅翹起來了，快拉！'; }
+    if (C.role === 'push' && d2 < CH_LATE) { C.cx = CH_TH - CH_FRONT - 4; chairEnd(false, '太晚了！輪椅被門檻卡住，過不去。', 'stuck'); return; }
+    chairDraw();
+  }
+  $('chRamp').addEventListener('click', () => { chairRamp(); frame.focus(); });
+  $('chAct').addEventListener('click', () => { chairAct(); frame.focus(); });
 
   // ---------- 老伯過門檻 ----------
   // The old man walks right, slowly. Three thresholds lie ahead. Press 小心門檻 when he is close to one:
@@ -2489,6 +2589,7 @@ async function boot() {
     if (!$('brief').hidden) { if (k === 'enter' || k === ' ') { e.preventDefault(); beginShift(); } return; }
     if (!S.started) return;
     if (S.mode === 'pcase') {
+      if (CHAIR.active) { if (k === '1' && !e.repeat) { e.preventDefault(); chairRamp(); } else if (['2', ' ', 'e', 'enter'].includes(k) && !e.repeat) { e.preventDefault(); chairAct(); } return; }
       if (DOOR.active) { if ([' ', 'e', 'enter'].includes(k) && !e.repeat) { e.preventDefault(); doorPress(); } return; }
       if (DRIP.active) { if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's'].includes(k)) { e.preventDefault(); DRIP.keys.add(k); } return; }
       if (BLK.active) { if (['1', '2', '3'].includes(k) && !e.repeat) { e.preventDefault(); blkPress(['guide', 'encourage', 'fix'][Number(k) - 1]); } return; }
@@ -2740,11 +2841,12 @@ async function boot() {
         : S.mode === 'walk' && !activeIds().length ? PACE.quiet : PACE.walk;
       const gm = dt * rate * PUBLIC_PACE;
       S.t += gm;
-      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active && !DOOR.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
+      if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active && !DOOR.active && !CHAIR.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
       if (VRA.active) vraTick(dt);
       if (BLK.active) blkTick(dt);
       if (DRIP.active) dripTick(dt);
       if (DOOR.active) doorTick(dt);
+      if (CHAIR.active) chairTick(dt);
       // asleep, the bar fills from empty in about 3 hours 40 minutes (it used to take under 2), so a
       // night can hold six to eight hours of sleep; everything that spends it -- the hours awake,
       // running, a call that wakes you -- was halved with it on 普通班 (SPEND), and is not on 大爛班
@@ -2808,7 +2910,7 @@ async function boot() {
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
-      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
+      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
     }
     if (!S.paused) pulse += dt;
     if (S.started && !S.ended && !S.paused) updateStaff(dt);
@@ -2838,7 +2940,7 @@ async function boot() {
   $('start').hidden = false;
   // index.html?debug exposes a handle for scripted playtests; on its own it changes nothing but ]
   if (DEBUG) {
-    window.__ward = { S, night, CASES, PC, arrive, VRA, DOOR, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
+    window.__ward = { S, night, CASES, PC, arrive, VRA, DOOR, CHAIR, chairDist, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
   }
   requestAnimationFrame(frameLoop);
 }

@@ -590,3 +590,8 @@ body.at-bedside .hud-right, body.at-bedside .hud-calls, body.at-bedside .goal { 
 /* 老伯過門檻 */
 .door-act { display: flex; justify-content: center; margin-bottom: .4em; }
 .door-act .btn { font-size: 1.25em; padding: .7em 2.2em; }
+
+/* 輪椅過門檻 */
+.chair .door-act { gap: .8em; }
+.chair .door-act .btn { font-size: 1.15em; padding: .7em 1.6em; }
+.chair .door-act .btn:disabled { opacity: .45; }

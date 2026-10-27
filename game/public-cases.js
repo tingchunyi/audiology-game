@@ -148,8 +148,10 @@ export const PREG = {
       options: [
         { id: 'chair', text: '用輪椅推她進來', grade: 'best', needs: 'colleague', colleague: -20, favor: 5, end: 'done', outcome: 'done',
           say: '輪椅卡在門口推不動！你找同事一起幫忙，兩個人合力把她推進來。同事累了一點。' },
-        { id: 'wait', text: '先讓她吐完', grade: 'best', min: 30, favor: 10, end: 'done', outcome: 'done',
-          say: '你陪她吐完、漱口，花了 30 分鐘，她舒服多了，順利完成檢查後離開。' },
+        { id: 'wait', text: '先讓她吐完', grade: 'best', minigame: 'chair',
+          win: { min: 30, favor: 10, end: 'done', outcome: 'done', say: '你陪她吐完、漱口，花了 30 分鐘，她舒服多了。接著兩個人合作，把輪椅平穩地過了門檻，順利完成檢查後離開。' },
+          lose: { min: 30, favor: -10, end: 'leave', say: '你陪她吐完、漱口，花了 30 分鐘。但輪椅過門檻出了狀況，孕婦被嚇到、更不舒服，只想先回家休息。',
+            why: '輪椅過門檻要兩個人配合：先放好斜板，推的人在靠近門檻時踩輪椅把前輪翹起，拉的人同時把輪椅拉上去。' } },
         { id: 'walk', text: '扶她站起來，走進來', grade: 'bad', pat: -100, complain: true, end: 'fail',
           say: '孕婦一站起來就吐得更厲害，頭暈得站不住，拒絕做檢查。她被投訴了。',
           why: '眩暈的人不要勉強走動，也不要催她。先處理症狀，安全比進度重要。' },
@@ -161,6 +163,7 @@ export const PREG = {
   card: { title: '眩暈的人要先確保安全', points: [
     '眩暈、嘔吐的人不要勉強走動，先坐著或躺著，旁邊要有人陪。',
     '搬動孕婦和輪椅需要人手，不要一個人硬推，請同事幫忙。',
+    '輪椅過門檻：先放斜板，推的人在靠近時踩輪椅翹起前輪，拉的人同時往上拉，兩人要配合好時機。',
     '病人需要處理症狀的時間，催她只會更糟。' ] },
 };
 
