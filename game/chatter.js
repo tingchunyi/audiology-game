@@ -31,8 +31,8 @@ export const CHATTER = {
     name: '阿凱', role: '助聽器廠商', faces: ['akai_coffee'],
     lines: [
       { text: '我們的新款電池可以多撐兩天，不過每個人用起來都不一樣，要看個人的使用情況。' },
-      { text: '聽力師，我下樓買咖啡，順便幫你帶一杯？……來，熱的。',
-        gift: { energy: 6, bladder: 12, toast: '你喝了阿凱帶的咖啡，比較有精神了，不過等一下可能要跑廁所。' } },
+      { text: '聽力師，我下樓買咖啡，順便幫你帶一杯？……來，熱的。', pri: true,
+        gift: { energy: 10, bladder: 8, toast: '你喝了阿凱帶來的一杯咖啡，精神好多了。喝多了會想上廁所。' } },
     ],
   },
   azhu: {

@@ -1365,8 +1365,8 @@ async function boot() {
   const colFree = () => !S.colleagueGone && !S.colleagueBreak;
   const helperFree = () => colFree() || intFree();
   function helperHit(n, zero) {   // spend n of a free helper's energy (zero: all of them)
-    const useInt = intFree() && (!colFree() || S.intern.energy > S.colleague);
-    if (zero) { S.colleague = 0; S.colleagueBreak = null; if (S.intern) { S.intern.energy = 0; S.intern.brk = null; } }
+    const useInt = intFree() && !colFree();   // the colleague first; 敏心 is the reserve once the colleague is gone or resting
+    if (zero) { S.colleague = 0; S.colleagueBreak = null; }
     else if (useInt) S.intern.energy = Math.max(0, S.intern.energy - n);
     else S.colleague = Math.max(0, S.colleague - n);
     checkColleague();
@@ -1930,8 +1930,8 @@ async function boot() {
     $('chActT').textContent = role === 'push' ? '踩輪椅' : '拉輪椅';
     $('chRamp').disabled = false;
     $('chHelp').textContent = role === 'push'
-      ? '先放好斜板。輪椅靠近門檻時按「踩輪椅」把前輪翹起：太早，前面拉的人拉不到；太晚，輪椅會卡在門檻。'
-      : '先放好斜板。後面推的人把輪椅翹起來的瞬間，馬上按「拉輪椅」：太早，輪椅還沒到門檻拉不到；太晚，輪椅會往後滑。';
+      ? '先把斜板放在門檻右邊。輪椅的前輪進到綠色方框時按「踩輪椅」把前輪翹起：太早，前面拉的人拉不到；太晚，輪椅會卡在門檻。'
+      : '先把斜板放在門檻右邊。後面推的人把輪椅翹起來的瞬間，馬上按「拉輪椅」：太早，輪椅還沒到門檻拉不到；太晚，輪椅會往後滑。';
     $('chMsg').textContent = tryNo > 1 ? `再試一次！還有 ${GAME_TRIES - tryNo + 1} 次機會（含這次）。你是${role === 'push' ? '推' : '拉'}輪椅的人。` : `輪椅慢慢往門檻移動。先放好斜板！你是${role === 'push' ? '推' : '拉'}輪椅的人。`;
     chairDraw(); frame.focus();
   }
@@ -1945,6 +1945,8 @@ async function boot() {
     const C = CHAIR, lift = C.cross ? -2 : 0;
     $('cChair').setAttribute('transform', `translate(${C.cx} ${lift}) rotate(${-C.tilt} 0 298)`);
     $('cRamp').setAttribute('opacity', C.ramp ? 1 : 0);
+    const zone = C.role === 'push' && C.phase === 'go' ? 1 : 0;
+    $('cZone').setAttribute('opacity', zone); $('cZoneT').setAttribute('opacity', zone);
     $('cPuller').setAttribute('transform', `translate(${C.cross ? 520 : 470} 0)`);
     const youX = C.role === 'push' ? C.cx - 62 : 470;
     $('cYou').setAttribute('transform', `translate(${youX} 186)`);
