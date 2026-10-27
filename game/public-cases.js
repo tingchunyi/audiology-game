@@ -247,9 +247,9 @@ export const ERPAT = {
         { id: 'stand', text: '準備活動式點滴架，攙扶病人走進來', grade: 'best', minigame: 'drip',
           win: { next: 'drip', say: '點滴架跟著病人一起走，順利進到診間坐好。' },
           lose: { favor: -10, end: 'leave', say: '走進診間的路上出了狀況，病人很不舒服，只好先請急診的人來接手。' } },
-        { id: 'wheel', text: '用輪椅推他進來', grade: 'ok', minigame: 'drip',
-          win: { pat: -20, next: 'drip', say: '輪椅加點滴架卡在門口，進不來。你重新處理，用點滴架扶他走進來，病人等得有點不耐煩。' },
-          lose: { pat: -20, favor: -10, end: 'leave', say: '輪椅卡在門口，改用走的又出了狀況，病人很不舒服，只好先請急診的人來接手。' } },
+        { id: 'wheel', text: '用輪椅推他進來', grade: 'bad', pat: -20, retry: true,
+          say: '輪椅加點滴架卡在門口，進不來。病人等得有點不耐煩，你得換個方式。',
+          why: '病人能走，就用活動式點滴架攙扶，不要硬推輪椅卡門口。' },
       ],
     },
     drip: {
