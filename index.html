@@ -154,6 +154,38 @@
         </div>
       </div>
 
+      <!-- 輪椅過門檻小遊戲：放斜板，然後和同伴配合把輪椅帶過門檻 -->
+      <div class="vra chair" id="chair" hidden data-phase="idle">
+        <div class="vra-hud"><span id="chTry">第 1 / 3 次</span><span id="chRole">你是：推輪椅的人</span><span>耐心 <b id="chPat">100</b></span></div>
+        <svg class="vra-scene" id="chSvg" viewBox="0 0 800 400" role="img" aria-label="孕婦坐輪椅在畫面左邊，中間有門檻，門檻右邊是檢查室">
+          <defs><linearGradient id="cWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3b4d"/><stop offset="1" stop-color="#1a2735"/></linearGradient></defs>
+          <rect width="800" height="400" fill="url(#cWall)"/>
+          <rect y="300" width="800" height="100" fill="#141d27"/><rect y="296" width="800" height="6" fill="#33485c"/>
+          <rect x="520" y="120" width="280" height="176" fill="#1d2d3c" stroke="#6b8196" stroke-width="3"/>
+          <text x="660" y="150" fill="#cfe9e4" font-size="18" text-anchor="middle">檢查室</text>
+          <rect x="640" y="230" width="80" height="66" fill="#33485c"/><rect x="650" y="215" width="60" height="16" fill="#9aa6b2"/>
+          <rect x="404" y="282" width="26" height="16" rx="3" fill="#d8b07a"/>
+          <text x="417" y="274" fill="#ffd24d" font-size="14" text-anchor="middle">門檻</text>
+          <polygon id="cRamp" points="352,298 404,298 404,282" fill="#8fb5cc" opacity="0"/>
+          <!-- the one at the front, past the threshold (pulls) -->
+          <g id="cPuller" transform="translate(470 0)"><circle cx="0" cy="214" r="13" fill="#ffd9b8"/><rect x="-13" y="228" width="26" height="46" rx="11" fill="#6aa7d8"/><rect x="-9" y="270" width="8" height="28" rx="3" fill="#33485c"/><rect x="2" y="270" width="8" height="28" rx="3" fill="#33485c"/><rect x="-34" y="238" width="24" height="7" rx="3" fill="#ffd9b8"/></g>
+          <!-- the chair with the woman in it -->
+          <g id="cChair">
+            <circle cx="0" cy="276" r="22" fill="none" stroke="#9aa6b2" stroke-width="5"/><circle cx="46" cy="289" r="9" fill="none" stroke="#9aa6b2" stroke-width="4"/>
+            <rect x="-26" y="196" width="7" height="60" rx="3" fill="#5b6672"/><rect x="-22" y="250" width="58" height="9" rx="3" fill="#5b6672"/><rect x="30" y="256" width="6" height="30" fill="#5b6672"/>
+            <rect x="-14" y="206" width="30" height="46" rx="12" fill="#d77fa1"/><circle cx="20" cy="232" r="15" fill="#d77fa1"/>
+            <circle cx="2" cy="192" r="13" fill="#ffd9b8"/><path d="M-11 190c2-14 24-14 26 0c-7-4-19-4-26 0z" fill="#3b2a20"/>
+            <rect x="26" y="256" width="9" height="26" rx="4" fill="#ffd9b8"/>
+            <g id="cPusher"><circle cx="-62" cy="210" r="13" fill="#ffd9b8"/><rect x="-75" y="224" width="26" height="46" rx="11" fill="#e0773c"/><rect x="-71" y="266" width="8" height="32" rx="3" fill="#33485c"/><rect x="-60" y="266" width="8" height="32" rx="3" fill="#33485c"/><rect x="-50" y="232" width="26" height="7" rx="3" fill="#ffd9b8"/></g>
+          </g>
+          <g id="cYou" opacity="1"><text x="0" y="0" fill="#ffd24d" font-size="15" text-anchor="middle">▼ 你</text></g>
+        </svg>
+        <p class="vra-msg" id="chMsg" aria-live="polite"></p>
+        <div class="vra-desk"><div class="vra-timer"><i id="chBar"></i></div>
+          <div class="door-act"><button class="btn" id="chRamp" type="button"><span class="key">1</span> 放好斜板</button><button class="btn go" id="chAct" type="button"><span class="key">2</span> <b id="chActT">踩輪椅</b></button></div>
+          <p class="drip-help" id="chHelp"></p></div>
+      </div>
+
       <!-- 老伯過門檻小遊戲：在快走近門檻時按「小心門檻」 -->
       <div class="vra door" id="door" hidden data-phase="idle">
         <div class="vra-hud"><span id="doorTry">第 1 / 3 次</span><span id="doorHit">門檻 0 / 3</span><span id="doorSlip">絆倒 0 / 2</span><span>耐心 <b id="doorPat">100</b></span></div>
