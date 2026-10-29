@@ -595,3 +595,7 @@ body.at-bedside .hud-right, body.at-bedside .hud-calls, body.at-bedside .goal { 
 .chair .door-act { gap: .8em; }
 .chair .door-act .btn { font-size: 1.15em; padding: .7em 1.6em; }
 .chair .door-act .btn:disabled { opacity: .45; }
+
+/* 設備故障 */
+.brk-opts { display: grid; gap: .5em; margin: .8em 0 .4em; }
+.mk.tag.fault .lbl { background: #b3261e; color: #fff; }

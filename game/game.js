@@ -478,6 +478,22 @@ async function boot() {
     // the call lamp on the corridor wall, beside the door
     lamps[b.id] = sph(world, 0.07, lampOff, r.door + 0.75, 1.15, ZCS - 0.12, 14, 10);
   });
+  // the printer stands in the middle of the corridor, against the wall on the audiology rooms' side;
+  // each room's audiometer has a lamp on it that goes red when the instrument is down
+  const PRINTER = [0.2, 1.45], PRINTER_STAND = [0.2, 2.3], instLamp = {};
+  const okGlow = glow('#38e07a', 4);
+  let printerLamp;
+  {
+    const [px, pz] = PRINTER;
+    box(world, 0.7, 0.62, 0.5, M('#c9cfd3', 0.5), px, 0.31, pz, 0.02);
+    box(world, 0.6, 0.22, 0.42, M('#e9ecef', 0.45), px, 0.73, pz, 0.03);
+    box(world, 0.46, 0.03, 0.3, M('#ffffff', 0.9), px, 0.86, pz + 0.02, 0.005);
+    box(world, 0.42, 0.015, 0.18, M('#ffffff', 0.9), px, 0.76, pz + 0.3, 0.003);
+    printerLamp = sph(world, 0.035, okGlow, px + 0.22, 0.8, pz + 0.22, 10, 8);
+    solid(px - 0.4, pz - 0.3, px + 0.4, pz + 0.3);
+    ROOMS.forEach(r => { const b = BED[r.n]; instLamp[r.n] = sph(world, 0.045, lampOff, b.desk - 0.7, 1.0, -3.5, 10, 8); });
+  }
+  const INST_STAND = r => [BED[r].desk - 0.7, -2.75];
   // the waiting area's call lamp stands on the counter
   lamps['候診'] = sph(world, 0.07, lampOff, 0.8, 1.02, 7.7, 14, 10);
 
@@ -893,6 +909,7 @@ async function boot() {
     calls: {}, current: null, ended: false, paused: false,
     pgy: 'm', shift: 'normal', duty: true, snacks: 3, drinks: 0,
     complaints: 0, favors: {}, favorHit: {}, favBonus: {}, special: null, susp: {}, arrived: [], late: {}, outcome: {}, colleague: 100, colleagueGone: false, intern: null, sched: null, plog: [],
+    printer: { broken: false, vendorAt: null }, inst: { '01': { broken: false, vendorAt: null }, '02': { broken: false, vendorAt: null }, '03': { broken: false, vendorAt: null } }, wp: {}, brk: null, repair: null,
     stats: { transferred: 0, arranged: 0, callsIn: 0, wakeups: 0, sleptMin: 0, wentFine: 0, phoned: 0, ignoredFine: 0, unanswered: 0, worsened: 0 },
     sleepStart: 0, nextCallAt: Infinity, call: null,
   };
@@ -929,6 +946,8 @@ async function boot() {
     { p: new THREE.Vector3(-11.7, 2.1, 5.9), el: mk('tag dimlbl', '<span class="lbl">飲水機</span>'), near: 5 },
   ];
   const bentoTag = mk('tag', '<span class="lbl">便當</span>');
+  const printerTag = mk('tag dimlbl', '<span class="lbl">印表機</span>');
+  const instTags = ROOMS.map(() => { const t = mk('tag dimlbl', '<span class="lbl">儀器</span>'); t.hidden = true; return t; });
   const waitTags = WAIT_SEATS.map(() => { const t = mk('tag', '<span class="lbl"></span>'); t.hidden = true; return t; });
   const zzz = mk('zzz', 'Z z z'); zzz.hidden = true;
   const prompt = document.createElement('div'); prompt.className = 'mk';
@@ -950,7 +969,7 @@ async function boot() {
   function renderHud() {
     $('clock').textContent = fmt(S.t);
     const toOff = OFF - S.t;
-    $('untilHandover').textContent = (toOff > 0 ? `距離下班 ${Math.floor(toOff / 60)} 小時 ${Math.floor(toOff % 60)} 分` : `加班中 ${Math.round(-toOff)} 分`) + ` · 投訴 ${S.complaints}`;
+    $('untilHandover').textContent = (toOff > 0 ? `距離下班 ${Math.floor(toOff / 60)} 小時 ${Math.floor(toOff % 60)} 分` : `加班中 ${Math.round(-toOff)} 分`) + ` · 投訴 ${S.complaints}` + (S.printer.broken ? ' · 印表機故障' : '') + (Object.values(S.inst).some(x => x.broken) ? ' · 儀器故障' : '');
     setMeter('mEnergy', S.energy, 40, 20); $('tEnergy').textContent = `${Math.round(S.energy)}%`;
     setMeter('mFull', S.full, 40, 20); $('tFull').textContent = S.eaten >= 100 ? '吃飽了' : S.eaten > 0 ? `吃了 ${Math.round(S.eaten)}%` : '沒吃午餐';
     $('mIntRow').hidden = !S.intern;
@@ -1013,6 +1032,12 @@ async function boot() {
       }
     }
     if (S.eaten < 100 && S.t >= PACE.dinnerAt) { const d = Math.hypot(p.x - ONCALL.eatAt[0], p.z - ONCALL.eatAt[1]); if (d < 1.3 && d < bd) { bd = d; best = S.t >= PACE.spoilAt ? { kind: 'sour', key: 'E', label: '便當（臭酸了）' } : { kind: 'eat', key: 'E', label: S.eaten > 0 ? '把便當吃完' : '吃便當' }; } }
+    if (S.printer.broken) { const d = Math.hypot(p.x - PRINTER_STAND[0], p.z - PRINTER_STAND[1]); if (d < 1.4 && d < bd) { bd = d; best = { kind: 'fixP', key: 'E', label: S.printer.vendorAt ? `印表機（廠商約 ${Math.max(1, Math.ceil(S.printer.vendorAt - S.t))} 分鐘後到）` : '修印表機' }; } }
+    for (const r of ['01', '02', '03']) {
+      if (!S.inst[r].broken) continue;
+      const [sx, sz] = INST_STAND(r), d = Math.hypot(p.x - sx, p.z - sz);
+      if (d < 1.2 && d < bd) { bd = d; best = { kind: 'fixI', room: r, key: 'E', label: S.inst[r].vendorAt ? `${BL(r)}儀器（廠商約 ${Math.max(1, Math.ceil(S.inst[r].vendorAt - S.t))} 分鐘後到）` : `修${BL(r)}的儀器` }; }
+    }
     if (S.bladder > 15) { const d = Math.hypot(p.x - ONCALL.toiletAt[0], p.z - ONCALL.toiletAt[1]); if (d < 0.9 && d < bd) { bd = d; best = { kind: 'toilet', key: 'E', label: '上廁所' }; } }
     // the bed takes the doctor however full the bar is: sleep no longer ends when it fills
     {
@@ -1042,6 +1067,8 @@ async function boot() {
       if (n.kind === 'case') openCase(n.id);
       else if (n.kind === 'eat') startEat();
       else if (n.kind === 'sour') toast('便當臭酸了不能吃。', 3);
+      else if (n.kind === 'fixP') fixCard('printer');
+      else if (n.kind === 'fixI') fixCard('inst', n.room);
       else if (n.kind === 'sleep') startSleep();
       else if (n.kind === 'toilet') useToilet();
       else if (n.kind === 'phone') usePhone();
@@ -1073,6 +1100,11 @@ async function boot() {
 
   // a bed: a small call walked to anyway plays a short scene; a patient opens the choices
   function openCase(id) {
+    if (isPatient(id) && !S.calls[id].opened && instBroken(CASES[id].bed)) {
+      const r = freeWorkingRoom();
+      if (!r) { toast(`${BL(CASES[id].bed)}的儀器故障了，又沒有別間空的檢查室。要先把儀器修好。`, 4.5); return; }
+      moveCase(id, r); toast(`${BL(r)}是空的，護士把病人帶去${BL(r)}。`, 3.5);
+    }
     if (CASES[id].kind === 'false') openScripted(id);
     else openPublicCase(id);
   }
@@ -1202,6 +1234,7 @@ async function boot() {
   // Blood drawn at a bed comes back LAB_WAIT game minutes later. The results sit in the call list
   // (and behind the bed's 檢驗報告 button) until the doctor opens them.
   function labsArrive() {
+    if (S.printer.broken) return;   // nothing prints until the printer is fixed
     for (const lab of S.labs) {
       if (lab.ready || S.t < lab.readyAt) continue;
       lab.ready = true;
@@ -1450,6 +1483,13 @@ async function boot() {
     const first = Math.random() < 0.5 ? [pm, am] : [am, pm];
     const slots = []; for (let i = 0; i < 4; i++) for (const L of first) if (L[i]) slots.push(L[i]);
     others.forEach((id, i) => sched.push({ type: 'patient', id, at: R(...slots[i]) }));
+    // equipment trouble: the printer and the audiometers each go down once to a few times a day
+    {
+      const slots = [[T(9), T(10, 40)], [T(10, 40), T(12, 10)], [T(13), T(14, 30)], [T(14, 30), T(16, 10)]];
+      const times = (more) => pickN(slots, 1 + (Math.random() < more ? 1 : 0) + (Math.random() < more / 3 ? 1 : 0)).map(w => R(...w));
+      for (const at of times(hard ? 0.6 : 0.4)) sched.push({ type: 'fault', what: 'printer', at });
+      for (const at of times(hard ? 0.6 : 0.4)) sched.push({ type: 'fault', what: 'inst', at });
+    }
     // off duty: the 12:00–13:00 calls are the colleague's
     S.sched = sched.filter(e => S.duty || e.type !== 'call' || e.at < T(12) || e.at >= T(13)).sort((a, b) => a.at - b.at).map(e => ({ ...e, done: false }));
     S.nextCallAt = Infinity;
@@ -1461,6 +1501,7 @@ async function boot() {
     for (const e of S.sched) {
       if (e.done || S.t < e.at) continue;
       if (e.type === 'patient') { e.done = true; arrive(e.id); continue; }
+      if (e.type === 'fault') { if (!faultOk()) continue; e.done = true; faultStart(e.what); return; }
       if (!ok) break;
       if (e.midexam) { if (S.mode !== 'pcase') { if (S.t > e.at + 25) e.done = true; continue; } }
       else if (e.prefer && S.mode !== 'pcase' && S.t < e.at + 15) continue;
@@ -1605,11 +1646,18 @@ async function boot() {
       $('pcOpts').innerHTML = '<button class="btn go pc-end" type="button" data-end="back">回去繼續上班</button>';
       return;
     }
+    if (blockedInst()) {
+      const r = CASES[PC.id].bed, opts = blockOpts();
+      $('pcQ').textContent = `${BL(r)}的儀器故障了，檢查沒辦法繼續！病人在一旁等著，耐心一直在掉${PCASE[PC.id].v2 ? '' : `（病人耐心 ${Math.round(S.wp[PC.id] ?? 100)}）`}。${S.inst[r].vendorAt ? `廠商約 ${Math.max(1, Math.ceil(S.inst[r].vendorAt - S.t))} 分鐘後到。` : ''}`;
+      $('pcOpts').innerHTML = opts.map((o, i) => `<button class="btn pc-opt" type="button" data-i="${i}"${o.off ? ' disabled' : ''}><span class="key">${i + 1}</span><span>${esc(o.text)}${o.off ? `（${esc(o.off)}）` : ''}</span></button>`).join('');
+      PC.blockKey = blockKey();
+      return;
+    }
     if (PC.waitReport) {
       const lab = PC.waitReport;
       if (lab.seen) PC.waitReport = null;
       else {
-        $('pcQ').textContent = lab.ready ? '純音聽力報告出來了。看過報告，才能接著處理這位病人。' : `純音聽力報告印製中，約 ${Math.max(1, Math.ceil(lab.readyAt - S.t))} 分鐘後出來。你可以先去處理其他病人，之後再回來看報告。`;
+        $('pcQ').textContent = lab.ready ? '純音聽力報告出來了。看過報告，才能接著處理這位病人。' : (printerStuck(lab) ? `印表機故障了，報告印不出來！要先修好印表機。病人耐心 ${Math.round(S.wp[PC.id] ?? 100)}。` : `純音聽力報告印製中，約 ${Math.max(1, Math.ceil(lab.readyAt - S.t))} 分鐘後出來。你可以先去處理其他病人，之後再回來看報告。`);
         $('pcOpts').innerHTML = `<button class="btn pc-opt" type="button" data-act="leave"><span class="key">1</span><span>先離開檢查室，去處理其他病人</span></button>`
           + `<button class="btn pc-opt" type="button" data-act="view"${lab.ready ? '' : ' disabled'}><span class="key">2</span><span>${lab.ready ? '看報告' : '看報告（還沒出來）'}</span></button>`;
         PC.waitKey = `${lab.ready}|${Math.ceil(lab.readyAt - S.t)}`;
@@ -1647,7 +1695,7 @@ async function boot() {
   function publicLabButton() {
     const lab = S.labs.find(l => l.id === PC.id && l.kind === 'extra'), b = $('pcLab');
     b.hidden = !C().labs; if (b.hidden) return;
-    b.textContent = !lab ? '加做檢查' : lab.ready ? (lab.seen ? '檢查報告' : '檢查報告（新）') : `報告約 ${Math.max(1, Math.ceil(lab.readyAt - S.t))} 分鐘後`;
+    b.textContent = !lab ? '加做檢查' : lab.ready ? (lab.seen ? '檢查報告' : '檢查報告（新）') : (printerStuck(lab) ? '印表機故障，報告印不出來' : `報告約 ${Math.max(1, Math.ceil(lab.readyAt - S.t))} 分鐘後`);
     b.classList.toggle('go', !lab || lab.ready);
   }
   $('pcLab').addEventListener('click', () => {
@@ -1683,6 +1731,7 @@ async function boot() {
   // i is the position on screen (button or key 1–4), not the option's place in the data
   function choosePublic(i) {
     if (S.mode !== 'pcase' || PC.cpr || PC.done || held($('pcOpts'))) return;
+    if (blockedInst()) { const o = blockOpts()[i]; if (o && !o.off) { o.run(); if (S.mode === 'pcase') renderPublicCase(); } return; }
     if (PC.waitReport) { if (i <= 1) waitAct(i === 0 ? 'leave' : 'view'); return; }
     const c = C(), step = c.steps[PC.step], o = step?.options[PC.orderFor === step ? PC.order[i] : i];
     if (!o || PC.off.has(o.id) || unavailable(o)) return;
@@ -1913,6 +1962,144 @@ async function boot() {
     if (VRA.active) $('vraPat').textContent = Math.round(PC.pat);
   }
 
+
+  // ---------- 設備故障：印表機、聽力檢查儀 ----------
+  // The printer (middle of the corridor) and each room's audiometer break down now and then. Nothing prints while the
+  // printer is down, so patients waiting on a report lose patience; a room with a dead audiometer cannot be used and
+  // the patient in it cannot go on. Fix it yourself (walk to it, then it takes a while and locks you in), call the
+  // vendor (slow, but cheap for you), or ignore it. Moving a patient to a free room is the way out for the instrument.
+  const FAULT = { printer: { selfMin: 20, selfEn: 12 }, inst: { selfMin: 10, selfEn: 8, moveMin: 5, moveEn: 10 }, callMin: 3, callEn: 3, vendorMin: 90 };
+  const ROOM_IDS = ['01', '02', '03'];
+  const instBroken = r => !!S.inst[r]?.broken;
+  const examId = r => Object.keys(S.calls).find(id => isPatient(id) && S.calls[id].state === 'active' && S.calls[id].opened && CASES[id].bed === r);
+  const freeWorkingRoom = except => ROOM_IDS.find(r => r !== except && !instBroken(r) && !examId(r));
+  const printerStuck = lab => S.printer.broken && !lab.ready && S.t >= lab.readyAt;
+  const blockedInst = () => S.mode === 'pcase' && !PC.done && !!PC.id && !!CASES[PC.id] && instBroken(CASES[PC.id].bed);
+  const blockKey = () => (blockedInst() ? `${CASES[PC.id].bed}|${S.inst[CASES[PC.id].bed].vendorAt ? Math.ceil(S.inst[CASES[PC.id].bed].vendorAt - S.t) : 0}|${!!freeWorkingRoom(CASES[PC.id].bed)}|${Math.round((S.wp[PC.id] ?? 100) / 5)}` : '');
+  const faultOk = () => ['walk', 'pcase'].includes(S.mode) && !S.brk && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active && !(S.mode === 'pcase' && PC.cpr);
+  const spendEn = n => { S.energy = Math.max(0, S.energy - n); };
+  function moveCase(id, to) {
+    const c = CASES[id], from = c.bed; if (from === to) return;
+    lamps[from].material = lampOff;
+    c.bed = to; ensureNurse(to).userData.chatName = c.nurse;
+    const m = markFor(id); const l = m.querySelector('.lbl'); if (l) l.textContent = BL(to); if (edges[id]) edges[id].lastChild.textContent = BL(to);
+    if (S.mode === 'pcase' && PC.id === id) { place(player, ...SPOT.approach(BED[to]), Math.PI); $('pcBed').textContent = BL(to); }
+    plog(`${c.short}換到${BL(to)}檢查`);
+  }
+  function leavePatient(id, why) {
+    const c = PCASE[id]; if (!S.calls[id] || S.calls[id].state !== 'active') return;
+    S.complaints++; S.outcome[id] = 'left'; S.favors[id] = 20; S.stats.worsened++;
+    resolve(id, false);
+    plog(`${c.name}等太久，生氣地走了，被投訴`, 'warn'); toast(`${c.short}等不下去，走了。被投訴了。`, 5);
+    if (S.mode === 'pcase' && PC.id === id) { PC.done = true; PC.outcome = 'left'; PC.endText = why; PC.waitReport = null; renderPublicCase(); }
+    delete S.susp[id];
+  }
+  // the card that asks what to do
+  function brkOpen(title, text, note, opts) {
+    const prev = S.mode; S.brk = { prev, opts };
+    S.mode = 'brk'; keys.clear(); prompt.hidden = true;
+    if (prev === 'pcase') $('pcase').hidden = true;
+    $('brkTitle').textContent = title; $('brkText').textContent = text; $('brkNote').textContent = note || ''; $('brkWhen').textContent = fmt(S.t);
+    $('brkOpts').innerHTML = opts.map((o, i) => `<button class="btn pc-opt" type="button" data-i="${i}"${o.off ? ' disabled' : ''}><span class="key">${i + 1}</span><span>${esc(o.text)}${o.off ? `（${esc(o.off)}）` : ''}</span></button>`).join('');
+    $('brk').hidden = false;
+  }
+  function brkPick(i) {
+    const o = S.brk?.opts[i]; if (!o || o.off) return;
+    const prev = S.brk.prev; $('brk').hidden = true; S.brk = null;
+    S.mode = prev === 'pcase' ? 'pcase' : 'walk';
+    if (prev === 'pcase') $('pcase').hidden = false;
+    o.run();
+    if (S.mode === 'pcase' && !$('pcase').hidden) renderPublicCase();
+    frame.focus();
+  }
+  $('brkOpts').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !$('brk').hidden) brkPick(Number(b.dataset.i)); });
+  function callVendor(kind, room) {
+    const t = kind === 'printer' ? S.printer : S.inst[room];
+    S.t += FAULT.callMin; spendEn(FAULT.callEn); t.vendorAt = S.t + FAULT.vendorMin;
+    toast(`你打電話請廠商來修，約 ${FAULT.vendorMin} 分鐘後到。`, 4.5);
+    plog(`叫廠商修${kind === 'printer' ? '印表機' : BL(room) + '的儀器'}（約 ${FAULT.vendorMin} 分鐘）`);
+  }
+  function printerOpts(at) {
+    const t = S.printer;
+    return [
+      { text: at ? `現在動手修（約 ${FAULT.printer.selfMin} 分鐘、精力 −${FAULT.printer.selfEn}，修的時候不能做別的事）` : `親自去修（要走到走道中央的印表機旁邊；約 ${FAULT.printer.selfMin} 分鐘、精力 −${FAULT.printer.selfEn}）`,
+        run: () => (at ? startRepair('printer') : toast('走到走道中央的印表機旁邊，按 E 開始維修。', 5)) },
+      { text: `叫廠商來修（你打電話約 ${FAULT.callMin} 分鐘、精力 −${FAULT.callEn}；廠商約 ${FAULT.vendorMin} 分鐘後到）`, off: t.vendorAt ? '已經叫過了' : '', run: () => callVendor('printer') },
+      { text: '先不管它（不花時間、不花精力，但報告印不出來，等報告的病人會越來越不耐煩）', run: () => toast('印表機先擱著。等報告的病人耐心會一直掉。', 4) },
+    ];
+  }
+  function instOpts(r, at) {
+    const t = S.inst[r], pid = examId(r), free = freeWorkingRoom(r);
+    return [
+      { text: at ? `重新開機（約 ${FAULT.inst.selfMin} 分鐘、精力 −${FAULT.inst.selfEn}，開機時不能做別的事，病人也沒辦法檢查）` : `重新開機（要走到${BL(r)}的儀器旁邊；約 ${FAULT.inst.selfMin} 分鐘、精力 −${FAULT.inst.selfEn}）`,
+        run: () => {
+          if (at) { startRepair('inst', r); return; }
+          if (S.mode === 'pcase' && !PC.done) suspendPublicCase();
+          toast(`走到${BL(r)}控制台的儀器旁邊，按 E 重新開機。`, 5);
+        } },
+      { text: `叫廠商來修（你打電話約 ${FAULT.callMin} 分鐘、精力 −${FAULT.callEn}；廠商約 ${FAULT.vendorMin} 分鐘後到）`, off: t.vendorAt ? '已經叫過了' : '', run: () => callVendor('inst', r) },
+      { text: `換別間檢查室（約 ${FAULT.inst.moveMin} 分鐘、精力 −${FAULT.inst.moveEn}；這間修好前不能用）`, off: !pid ? '這間沒有病人' : !free ? '沒有空的檢查室' : '',
+        run: () => { S.t += FAULT.inst.moveMin; spendEn(FAULT.inst.moveEn); moveCase(pid, free); toast(`病人換到${BL(free)}繼續檢查。${BL(r)}的儀器還是壞的，修好前不能用。`, 5); } },
+      { text: '先不管它（這間修好前不能用）', off: pid ? '病人正在檢查，不能不管' : '', run: () => toast(`${BL(r)}先關著，修好前不能用。`, 4) },
+    ];
+  }
+  const blockOpts = () => instOpts(CASES[PC.id].bed, false).slice(0, 3);
+  function faultStart(what) {
+    if (what === 'printer') {
+      if (S.printer.broken) return;
+      S.printer.broken = true; S.printer.vendorAt = null; plog('印表機故障了', 'warn');
+      brkOpen('印表機故障', '走道中央的印表機卡紙、亮起錯誤燈，檢查報告印不出來了。印表機修好之前，等報告的病人會越來越不耐煩。', '要親自修，得走到印表機旁邊。', printerOpts(false));
+      return;
+    }
+    const cur = S.mode === 'pcase' && !PC.done && PC.id && CASES[PC.id] ? CASES[PC.id].bed : null;
+    const busy = ROOM_IDS.filter(r => examId(r) && !instBroken(r)), pool = ROOM_IDS.filter(r => !instBroken(r));
+    const r = cur && !instBroken(cur) ? cur : busy.length ? pickN(busy, 1)[0] : pool.length ? pickN(pool, 1)[0] : null;
+    if (!r) return;
+    S.inst[r].broken = true; S.inst[r].vendorAt = null; plog(`${BL(r)}的聽力檢查儀當機了`, 'warn');
+    brkOpen(`${BL(r)}的儀器故障`, `${BL(r)}的聽力檢查儀突然當機，螢幕全黑。${examId(r) ? '病人正在檢查，沒辦法繼續，耐心一直在掉。' : '這間先不能用了。'}`, '要重新開機，得走到儀器旁邊。', instOpts(r, false));
+  }
+  // E beside the broken machine
+  function fixCard(kind, room) {
+    if (kind === 'printer') brkOpen('印表機故障', S.printer.vendorAt ? `廠商約 ${Math.max(1, Math.ceil(S.printer.vendorAt - S.t))} 分鐘後到。你也可以現在自己動手修。` : '要自己動手修，還是叫廠商？', '', printerOpts(true));
+    else brkOpen(`${BL(room)}的儀器故障`, S.inst[room].vendorAt ? `廠商約 ${Math.max(1, Math.ceil(S.inst[room].vendorAt - S.t))} 分鐘後到。你也可以現在自己重新開機。` : '要重新開機，還是叫廠商？', '', instOpts(room, true));
+  }
+  function startRepair(kind, room) {
+    const f = kind === 'printer' ? FAULT.printer : FAULT.inst;
+    S.mode = 'repair'; keys.clear(); prompt.hidden = true;
+    S.repair = { kind, room, left: 5, total: 5, min: f.selfMin, en: f.selfEn };
+    $('repText').textContent = kind === 'printer' ? '正在修印表機……' : `正在重新開機${BL(room)}的儀器……`;
+    $('repBar').style.width = '0%'; $('repair').hidden = false;
+  }
+  function fixed(kind, room, how) {
+    if (kind === 'printer') { S.printer.broken = false; S.printer.vendorAt = null; toast(`${how}印表機修好了，卡住的報告會陸續印出來。`, 4.5, 'nurse_thankful'); plog('印表機修好了', 'best'); }
+    else { S.inst[room].broken = false; S.inst[room].vendorAt = null; toast(`${how}${BL(room)}的儀器恢復正常了。`, 4.5, 'nurse_thankful'); plog(`${BL(room)}的儀器修好了`, 'best'); }
+  }
+  // every frame: the vendors turn up; the repair runs; patients stuck waiting lose patience
+  function faultTick(gm, dt) {
+    if (S.mode === 'repair' && S.repair) {
+      const R = S.repair; R.left -= dt; spendEn(R.en * dt / R.total);
+      $('repBar').style.width = `${Math.min(100, (1 - R.left / R.total) * 100)}%`;
+      if (R.left <= 0) { $('repair').hidden = true; S.mode = 'walk'; S.repair = null; fixed(R.kind, R.room, '你把'); frame.focus(); }
+    }
+    if (S.printer.broken && S.printer.vendorAt && S.t >= S.printer.vendorAt) fixed('printer', null, '廠商來了，把');
+    for (const r of ROOM_IDS) if (S.inst[r].broken && S.inst[r].vendorAt && S.t >= S.inst[r].vendorAt) fixed('inst', r, '廠商來了，把');
+    if (!S.printer.broken && !ROOM_IDS.some(instBroken)) return;
+    const ids = new Set();
+    if (S.printer.broken) for (const l of S.labs) if (!l.ready && !l.seen && S.t >= l.readyAt && S.calls[l.id]?.state === 'active') ids.add(l.id);
+    for (const id of Object.keys(S.calls)) if (isPatient(id) && S.calls[id].state === 'active' && S.calls[id].opened && instBroken(CASES[id].bed)) ids.add(id);
+    for (const id of ids) {
+      if (PCASE[id].v2) {
+        if (S.mode === 'pcase' && PC.id === id) continue;          // the bedside clock already drains it
+        const s = S.susp[id]; if (!s) continue;
+        s.pat = Math.max(0, s.pat - gm * 5);
+        if (s.pat <= 0) leavePatient(id, PCASE[id].patOut || `${PCASE[id].name}等太久，走了。`);
+      } else {
+        const before = S.wp[id] ?? 100; S.wp[id] = Math.max(0, before - gm * 5);
+        if (before > 30 && S.wp[id] <= 30) toast(`${PCASE[id].short}等得很不耐煩了，再不處理就要走了。`, 4);
+        if (S.wp[id] <= 0) leavePatient(id, `${PCASE[id].name}等了太久，生氣地走了，被投訴。`);
+      }
+    }
+  }
 
   // ---------- 輪椅過門檻 ----------
   // The woman sits in a wheelchair at the left; a threshold lies in the middle, the exam room beyond it.
@@ -2330,7 +2517,7 @@ async function boot() {
   function publicSummary() {
     if (S.ended) return;
     S.ended = true; S.mode = 'end';
-    ['pcase', 'pdeath', 'dialog', 'sleep', 'scall', 'recall', 'eat', 'interrupt', 'glab'].forEach(id => { $(id).hidden = true; });
+    ['pcase', 'pdeath', 'dialog', 'sleep', 'scall', 'recall', 'eat', 'interrupt', 'glab', 'brk', 'repair'].forEach(id => { $(id).hidden = true; });
     document.body.classList.remove('at-bedside');
     const st = S.stats, tonight = S.arrived.map(id => PCASE[id]);
     const seen = tonight.filter(c => c.results[S.outcome?.[c.id]]);
@@ -2600,6 +2787,8 @@ async function boot() {
       else if (/^[1-4]$/.test(k) && !e.repeat) { e.preventDefault(); choosePublic(Number(k) - 1); }
       return;
     }
+    if (S.mode === 'brk') { if (/^[1-4]$/.test(k) && !e.repeat) { e.preventDefault(); brkPick(Number(k) - 1); } return; }
+    if (S.mode === 'repair') return;
     if (S.mode === 'pdead') return;
     if (MOVE.includes(k) || k === ' ') e.preventDefault();
     keys.add(k);
@@ -2816,6 +3005,20 @@ async function boot() {
     if (!bentoTag.hidden) { bentoTag.querySelector('.lbl').textContent = S.t >= PACE.spoilAt ? '便當（臭酸了）' : S.eaten > 0 ? '便當（涼了）' : '便當'; setPos(bentoTag, project(v3.set(...ONCALL.bento))); }
     zzz.hidden = !asleep;
     if (!zzz.hidden) setPos(zzz, project(v3.set(...ONCALL.zzz)));
+    {
+      const pb = S.printer.broken, pp = v3.set(PRINTER[0], 1.5, PRINTER[1]);
+      printerTag.hidden = asleep || (!pb && !S.map && Math.hypot(p.x - pp.x, p.z - pp.z) > 5);
+      printerTag.classList.toggle('fault', pb); printerTag.querySelector('.lbl').textContent = pb ? '印表機故障' : '印表機';
+      if (!printerTag.hidden) setPos(printerTag, project(pp));
+      ROOMS.forEach((r, i) => {
+        const ib = S.inst[r.n].broken, ip = v3.set(BED[r.n].desk - 0.7, 1.3, -3.5);
+        instTags[i].hidden = asleep || !ib; instTags[i].classList.toggle('fault', ib);
+        instTags[i].querySelector('.lbl').textContent = `${BL(r.n)}儀器故障`;
+        if (!instTags[i].hidden) setPos(instTags[i], project(ip));
+      });
+      printerLamp.material = pb ? lampMat.red : okGlow;
+      ROOMS.forEach(r => { instLamp[r.n].material = S.inst[r.n].broken ? lampMat.red : lampOff; });
+    }
     updatePatients(asleep);
     prompt.hidden = !n;
     if (n) { $('promptKey').textContent = n.key; $('promptText').textContent = n.label; setPos(prompt, project(player.position.clone().setY(2.2))); }
@@ -2839,11 +3042,12 @@ async function boot() {
     if (S.started && !S.ended && !S.paused) {
       // game minutes per real second: sleep fast-forwards, a bed runs slow so the choices are not
       // a race against the clock, a ringing phone waits
-      const rate = S.mode === 'sleep' ? PACE.sleep : S.mode === 'pcase' ? (PCASE[S.current]?.pace ? PCASE[S.current].pace / 60 / PUBLIC_PACE : PACE.pcase * (PCASE[S.current]?.hard ? 2.2 : 1)) : S.mode === 'scall' || S.mode === 'recall' || S.mode === 'pdead' ? 0
+      const rate = S.mode === 'repair' ? S.repair.min / S.repair.total / PUBLIC_PACE : S.mode === 'sleep' ? PACE.sleep : S.mode === 'pcase' ? (PCASE[S.current]?.pace ? PCASE[S.current].pace / 60 / PUBLIC_PACE : PACE.pcase * (PCASE[S.current]?.hard ? 2.2 : 1)) : S.mode === 'scall' || S.mode === 'brk' || S.mode === 'recall' || S.mode === 'pdead' ? 0
         : S.mode === 'walk' && !activeIds().length ? PACE.quiet : PACE.walk;
       const gm = dt * rate * PUBLIC_PACE;
       S.t += gm;
       if (S.mode === 'pcase' && PC.v2 && !PC.done && !PC.cpr && !DRIP.active && !DOOR.active && !CHAIR.active) { PC.pat = Math.max(0, PC.pat - gm * 5); patienceCheck(); }
+      faultTick(gm, dt);
       if (VRA.active) vraTick(dt);
       if (BLK.active) blkTick(dt);
       if (DRIP.active) dripTick(dt);
@@ -2912,7 +3116,7 @@ async function boot() {
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
-      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
+      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (!PC.done && PC.blockKey !== blockKey()) renderPublicCase(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
     }
     if (!S.paused) pulse += dt;
     if (S.started && !S.ended && !S.paused) updateStaff(dt);
@@ -2942,7 +3146,7 @@ async function boot() {
   $('start').hidden = false;
   // index.html?debug exposes a handle for scripted playtests; on its own it changes nothing but ]
   if (DEBUG) {
-    window.__ward = { S, night, CASES, PC, arrive, VRA, DOOR, CHAIR, chairDist, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
+    window.__ward = { faultStart, brkPick, fixCard, instBroken, S, night, CASES, PC, arrive, VRA, DOOR, CHAIR, chairDist, calcFavor, TALKERS, openChat, step: (n = 1) => { for (let i = 0; i < n; i++) runFrame(last + 1000 / 60); }, publicCall, publicTick, openPublicCase, BED, WARD, renderer, scene, composer, solids, openCase, spawnCase, startSleep, place, get player() { return player; }, get quality() { return quality; } };
   }
   requestAnimationFrame(frameLoop);
 }
