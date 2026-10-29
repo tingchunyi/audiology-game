@@ -74,7 +74,7 @@ export const CHATTER = {
   bed: {
     name: '', role: '跟診護士', faces: ['nurse_thankful', 'nurse_caring', 'nurse_sleepy'],
     lines: [
-      { text: '剛剛那位謝謝你，聽力師。有你來看，我比較安心。' },
+      { text: '今天沒有限號，真傷腦筋。' },
       { text: '快下班了，剩下的我來收，你先喝口水。', when: s => s.late },
     ],
   },
