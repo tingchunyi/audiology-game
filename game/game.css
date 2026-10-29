@@ -599,3 +599,7 @@ body.at-bedside .hud-right, body.at-bedside .hud-calls, body.at-bedside .goal { 
 /* 設備故障 */
 .brk-opts { display: grid; gap: .5em; margin: .8em 0 .4em; }
 .mk.tag.fault .lbl { background: #b3261e; color: #fff; }
+
+/* 床邊也看得到同事、敏心的精力 */
+.btn.hlp { font-size: .85em; padding: .45em .7em; white-space: nowrap; }
+.btn.hlp.low { border-color: #ff8d92; color: #ff8d92; }

@@ -977,6 +977,10 @@ async function boot() {
     $('mIntRow').hidden = !S.intern;
     if (S.intern) { setMeter('mInt', S.intern.energy, 40, 20); $('tInt').textContent = S.intern.gone ? '已下班' : S.intern.brk ? `休息中 ${Math.round(S.intern.energy)}%` : `${Math.round(S.intern.energy)}%`; }
     $('btnInt').hidden = !S.intern;
+    { const c = S.colleagueGone ? '已下班' : S.colleagueBreak ? `休息中 ${Math.round(S.colleague)}%` : `${Math.round(S.colleague)}%`;
+      $('pcBreakC').innerHTML = `<span class="key">B</span>同事 ${c}`; $('pcBreakC').classList.toggle('low', S.colleague < 40 && !S.colleagueGone);
+      $('pcBreakI').hidden = !S.intern;
+      if (S.intern) { const i = S.intern; $('pcBreakI').innerHTML = `<span class="key">N</span>敏心 ${i.gone ? '已下班' : i.brk ? `休息中 ${Math.round(i.energy)}%` : `${Math.round(i.energy)}%`}`; $('pcBreakI').classList.toggle('low', i.energy < 40 && !i.gone); } }
     setMeter('mColl', S.colleague, 40, 20); $('tColl').textContent = S.colleagueGone ? '已下班' : S.colleagueBreak ? `休息中 ${Math.round(S.colleague)}%` : `${Math.round(S.colleague)}%`;
     setMeter('mBladder', S.bladder, 70, 85, true); $('tBladder').textContent = `${Math.round(S.bladder)}%`;
     const active = activeIds().sort((a, b) => (levelOf(a) === 'red' ? 0 : 1) - (levelOf(b) === 'red' ? 0 : 1) || S.calls[a].since - S.calls[b].since);
@@ -1385,7 +1389,8 @@ async function boot() {
   const isPatient = id => CASES[id]?.kind === 'public';
   function freeRoom() {
     const used = Object.keys(S.calls).filter(id => S.calls[id].state === 'active' && isPatient(id)).map(id => CASES[id].bed);
-    return ['01', '02', '03'].find(r => !used.includes(r)) || pickN(['01', '02', '03'], 1)[0];
+    const all = ['01', '02', '03'], ok = all.filter(r => !S.inst?.[r]?.broken), free = ok.filter(r => !used.includes(r));
+    return pickN(free.length ? free : ok.length ? ok : all, 1)[0];   // a random free room, not always 01
   }
   // a patient reaches the waiting area (prio: an urgent call was answered with 馬上安排)
   function arrive(id, prio = false) {
@@ -1439,6 +1444,8 @@ async function boot() {
     toast('敏心去茶水間吃點心、喝咖啡了。30 分鐘內不能請她幫忙。', 4.5);
     plog('敏心去休息（吃點心、喝咖啡）');
   }
+  $('pcBreakC').addEventListener('click', () => { sendBreak(); frame.focus(); });
+  $('pcBreakI').addEventListener('click', () => { internBreak(); frame.focus(); });
   $('btnInt').addEventListener('click', () => { internBreak(); frame.focus(); });
   $('btnBreak').addEventListener('click', () => { sendBreak(); frame.focus(); });
   const spend = () => {
@@ -1490,9 +1497,9 @@ async function boot() {
     // equipment trouble: the printer and the audiometers each go down once to a few times a day
     {
       const slots = [[T(9), T(10, 40)], [T(10, 40), T(12, 10)], [T(13), T(14, 30)], [T(14, 30), T(16, 10)]];
-      const times = (more) => pickN(slots, 1 + (Math.random() < more ? 1 : 0) + (Math.random() < more / 3 ? 1 : 0)).map(w => R(...w));
-      for (const at of times(hard ? 0.6 : 0.4)) sched.push({ type: 'fault', what: 'printer', at });
-      for (const at of times(hard ? 0.6 : 0.4)) sched.push({ type: 'fault', what: 'inst', at });
+      const times = (more) => pickN(slots, 1 + (Math.random() < more ? 1 : 0)).map(w => R(...w));   // once a day, a second time now and then
+      for (const at of times(hard ? 0.3 : 0.2)) sched.push({ type: 'fault', what: 'printer', at });
+      for (const at of times(hard ? 0.3 : 0.2)) sched.push({ type: 'fault', what: 'inst', at });
     }
     // off duty: the 12:00–13:00 calls are the colleague's
     S.sched = sched.filter(e => S.duty || e.type !== 'call' || e.at < T(12) || e.at >= T(13)).sort((a, b) => a.at - b.at).map(e => ({ ...e, done: false }));
@@ -2800,6 +2807,8 @@ async function boot() {
       if (VRA.active) { if (['arrowleft', 'a'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(-1); } else if (['arrowright', 'd'].includes(k) && !e.repeat) { e.preventDefault(); vraPress(1); } return; }
       if (PC.cpr && (k === 'c' || k === ' ') && !e.repeat) { e.preventDefault(); cprPress(); }
       else if (/^[1-4]$/.test(k) && !e.repeat) { e.preventDefault(); choosePublic(Number(k) - 1); }
+      else if (k === 'b' && !e.repeat) sendBreak();
+      else if (k === 'n' && !e.repeat) internBreak();
       return;
     }
     if (S.mode === 'brk') { if (/^[1-4]$/.test(k) && !e.repeat) { e.preventDefault(); brkPick(Number(k) - 1); } return; }
