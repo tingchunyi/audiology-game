@@ -620,6 +620,7 @@ async function boot() {
   const ONCALL = { bed: [3.25, 7.75, 5.45, 8.65], wake: [4.4, 7.25], eatAt: [-10.3, 5.3], seat: [-10.3, 6.1], seatRot: 0, stand: [-10.3, 5.3],
     toiletAt: [10.6, 7.0], toiletOut: [10.6, 5.6], sleeper: [cotX + 0.82, 0.64, cotZ], bento: [-10.3, 1.25, 7.0], zzz: [cotX - 0.08, 1.3, cotZ],
     phoneAt: [3.55, 6.1], snackAt: [5.0, 5.6], waterAt: [-11.05, 5.9] };
+  const PRINT_DUE = 40, COMPUTER = [3.55, 5.4];   // the vendor's report is printed at the office computer within 40 minutes
 
   // ---------- plants at the two ends of the corridor ----------
   function plant(x, z) {
@@ -909,7 +910,7 @@ async function boot() {
     calls: {}, current: null, ended: false, paused: false,
     pgy: 'm', shift: 'normal', duty: true, snacks: 3, drinks: 0,
     complaints: 0, favors: {}, favorHit: {}, favBonus: {}, special: null, susp: {}, arrived: [], late: {}, outcome: {}, colleague: 100, colleagueGone: false, intern: null, sched: null, plog: [],
-    printer: { broken: false, vendorAt: null }, inst: { '01': { broken: false, vendorAt: null }, '02': { broken: false, vendorAt: null }, '03': { broken: false, vendorAt: null } }, wp: {}, brk: null, repair: null,
+    printer: { broken: false, vendorAt: null }, inst: { '01': { broken: false, vendorAt: null }, '02': { broken: false, vendorAt: null }, '03': { broken: false, vendorAt: null } }, wp: {}, brk: null, repair: null, job: null,
     stats: { transferred: 0, arranged: 0, callsIn: 0, wakeups: 0, sleptMin: 0, wentFine: 0, phoned: 0, ignoredFine: 0, unanswered: 0, worsened: 0 },
     sleepStart: 0, nextCallAt: Infinity, call: null,
   };
@@ -946,6 +947,7 @@ async function boot() {
     { p: new THREE.Vector3(-11.7, 2.1, 5.9), el: mk('tag dimlbl', '<span class="lbl">飲水機</span>'), near: 5 },
   ];
   const bentoTag = mk('tag', '<span class="lbl">便當</span>');
+  const jobTag = mk('tag fault', '<span class="lbl">列印報告</span>');
   const printerTag = mk('tag dimlbl', '<span class="lbl">印表機</span>');
   const instTags = ROOMS.map(() => { const t = mk('tag dimlbl', '<span class="lbl">儀器</span>'); t.hidden = true; return t; });
   const waitTags = WAIT_SEATS.map(() => { const t = mk('tag', '<span class="lbl"></span>'); t.hidden = true; return t; });
@@ -969,7 +971,7 @@ async function boot() {
   function renderHud() {
     $('clock').textContent = fmt(S.t);
     const toOff = OFF - S.t;
-    $('untilHandover').textContent = (toOff > 0 ? `距離下班 ${Math.floor(toOff / 60)} 小時 ${Math.floor(toOff % 60)} 分` : `加班中 ${Math.round(-toOff)} 分`) + ` · 投訴 ${S.complaints}` + (S.printer.broken ? ' · 印表機故障' : '') + (Object.values(S.inst).some(x => x.broken) ? ' · 儀器故障' : '');
+    $('untilHandover').textContent = (toOff > 0 ? `距離下班 ${Math.floor(toOff / 60)} 小時 ${Math.floor(toOff % 60)} 分` : `加班中 ${Math.round(-toOff)} 分`) + ` · 投訴 ${S.complaints}` + (S.job ? ' · 待列印報告' : '') + (S.printer.broken ? ' · 印表機故障' : '') + (Object.values(S.inst).some(x => x.broken) ? ' · 儀器故障' : '');
     setMeter('mEnergy', S.energy, 40, 20); $('tEnergy').textContent = `${Math.round(S.energy)}%`;
     setMeter('mFull', S.full, 40, 20); $('tFull').textContent = S.eaten >= 100 ? '吃飽了' : S.eaten > 0 ? `吃了 ${Math.round(S.eaten)}%` : '沒吃午餐';
     $('mIntRow').hidden = !S.intern;
@@ -1032,6 +1034,7 @@ async function boot() {
       }
     }
     if (S.eaten < 100 && S.t >= PACE.dinnerAt) { const d = Math.hypot(p.x - ONCALL.eatAt[0], p.z - ONCALL.eatAt[1]); if (d < 1.3 && d < bd) { bd = d; best = S.t >= PACE.spoilAt ? { kind: 'sour', key: 'E', label: '便當（臭酸了）' } : { kind: 'eat', key: 'E', label: S.eaten > 0 ? '把便當吃完' : '吃便當' }; } }
+    if (S.job) { const d = Math.hypot(p.x - COMPUTER[0], p.z - COMPUTER[1]); if (d < 0.95 && d < bd) { bd = d; best = { kind: 'print', key: 'E', label: '列印廠商要的聽力報告' }; } }
     if (S.printer.broken) { const d = Math.hypot(p.x - PRINTER_STAND[0], p.z - PRINTER_STAND[1]); if (d < 1.4 && d < bd) { bd = d; best = { kind: 'fixP', key: 'E', label: S.printer.vendorAt ? `印表機（廠商約 ${Math.max(1, Math.ceil(S.printer.vendorAt - S.t))} 分鐘後到）` : '修印表機' }; } }
     for (const r of ['01', '02', '03']) {
       if (!S.inst[r].broken) continue;
@@ -1067,6 +1070,7 @@ async function boot() {
       if (n.kind === 'case') openCase(n.id);
       else if (n.kind === 'eat') startEat();
       else if (n.kind === 'sour') toast('便當臭酸了不能吃。', 3);
+      else if (n.kind === 'print') printJob();
       else if (n.kind === 'fixP') fixCard('printer');
       else if (n.kind === 'fixI') fixCard('inst', n.room);
       else if (n.kind === 'sleep') startSleep();
@@ -1562,9 +1566,8 @@ async function boot() {
     } else if (how === 'go') {
       plog('你：馬上安排', urgent ? 'best' : 'ok');
       if (urgent) {
-        S.stats.arranged++;
-        if (sc.spawn) arrive(sc.spawn, true);
-        else { S.t += 5; toast('你確認授權後，把報告傳給廠商。', 3.5, 'nurse_thankful'); }
+        if (sc.spawn) { S.stats.arranged++; arrive(sc.spawn, true); }
+        else { S.job = { short: sc.short, due: S.t + PRINT_DUE }; toast('走到辦公室的電腦，按 E 列印報告給廠商。客人在等，別拖太久。', 6, 'nurse_neutral'); plog('要到辦公室的電腦列印聽力報告', 'warn'); }
       } else {
         S.t += sc.fix || sc.midexam ? 1 : 3; S.trivial++;
         if (sc.midexam) toast('重新把耳機線插好，檢查繼續。', 3);
@@ -2076,7 +2079,18 @@ async function boot() {
     else { S.inst[room].broken = false; S.inst[room].vendorAt = null; toast(`${how}${BL(room)}的儀器恢復正常了。`, 4.5, 'nurse_thankful'); plog(`${BL(room)}的儀器修好了`, 'best'); }
   }
   // every frame: the vendors turn up; the repair runs; patients stuck waiting lose patience
+  // the vendor's report: printed at the office computer, or the customer gives up
+  function printJob() {
+    if (!S.job) return;
+    if (S.printer.broken) { toast('走道的印表機壞了，印不出來！要先修好印表機。', 4.5); return; }
+    S.job = null; S.t += 5; S.stats.arranged++;
+    toast('報告印好、授權確認後傳給廠商了。客人說謝謝。', 4, 'nurse_thankful'); plog('列印報告給廠商', 'best');
+  }
   function faultTick(gm, dt) {
+    if (S.job && S.t >= S.job.due) {
+      S.job = null; S.complaints++; S.stats.unanswered++;
+      toast('廠商等太久，客人先走了，被投訴。', 5); plog('廠商要的報告沒有及時印出來，被投訴', 'bad');
+    }
     if (S.mode === 'repair' && S.repair) {
       const R = S.repair; R.left -= dt; spendEn(R.en * dt / R.total);
       $('repBar').style.width = `${Math.min(100, (1 - R.left / R.total) * 100)}%`;
@@ -3017,6 +3031,7 @@ async function boot() {
         instTags[i].querySelector('.lbl').textContent = `${BL(r.n)}儀器故障`;
         if (!instTags[i].hidden) setPos(instTags[i], project(ip));
       });
+      jobTag.hidden = asleep || !S.job; if (!jobTag.hidden) setPos(jobTag, project(v3.set(COMPUTER[0] - 0.7, 1.3, COMPUTER[1])));
       printerLamp.material = pb ? lampMat.red : okGlow;
       ROOMS.forEach(r => { instLamp[r.n].material = S.inst[r.n].broken ? lampMat.red : lampOff; });
     }
