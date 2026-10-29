@@ -1646,6 +1646,7 @@ async function boot() {
       $('pcOpts').innerHTML = '<button class="btn go pc-end" type="button" data-end="back">回去繼續上班</button>';
       return;
     }
+    if (!blockedInst()) PC.blockKey = '';
     if (blockedInst()) {
       const r = CASES[PC.id].bed, opts = blockOpts();
       $('pcQ').textContent = `${BL(r)}的儀器故障了，檢查沒辦法繼續！病人在一旁等著，耐心一直在掉${PCASE[PC.id].v2 ? '' : `（病人耐心 ${Math.round(S.wp[PC.id] ?? 100)}）`}。${S.inst[r].vendorAt ? `廠商約 ${Math.max(1, Math.ceil(S.inst[r].vendorAt - S.t))} 分鐘後到。` : ''}`;
@@ -3116,7 +3117,7 @@ async function boot() {
       if (S.energy >= 30) S.warned20 = S.warned10 = false;
       if (S.energy <= 0 && S.mode === 'walk' && !S.ended) { S.collapsed = true; keys.clear(); endShift(); }
       if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').hidden = true; }
-      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (!PC.done && PC.blockKey !== blockKey()) renderPublicCase(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
+      hudTimer -= dt; if (hudTimer <= 0) { hudTimer = 0.25; renderHud(); if (S.mode === 'pcase') { publicLabButton(); if (!PC.done && (PC.blockKey || '') !== blockKey()) renderPublicCase(); if (PC.v2 && !VRA.active && !BLK.active && !DRIP.active && !DOOR.active && !CHAIR.active) { pcPatience(); availCheck(); } if (PC.waitReport) waitTick(); } }
     }
     if (!S.paused) pulse += dt;
     if (S.started && !S.ended && !S.paused) updateStaff(dt);
