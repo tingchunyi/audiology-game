@@ -328,6 +328,21 @@
         </div>
       </div>
 
+      <!-- 設備故障：印表機、聽力檢查儀 -->
+      <div class="gmodal" id="brk" hidden>
+        <div class="dim"></div>
+        <div class="icard wide" role="dialog" aria-modal="true" aria-labelledby="brkTitle">
+          <div class="callhead"><span class="ring"><i></i><span id="brkTitle">設備故障</span></span><span id="brkWhen"></span></div>
+          <p class="quote" id="brkText"></p>
+          <div class="brk-opts" id="brkOpts"></div>
+          <small id="brkNote"></small>
+        </div>
+      </div>
+      <div class="gmodal" id="repair" hidden>
+        <div class="dim"></div>
+        <div class="icard wide"><p class="quote" id="repText">維修中……</p><div class="vra-timer"><i id="repBar"></i></div><small>維修的時候不能做別的事。</small></div>
+      </div>
+
       <div class="gmodal with-me" id="scall" hidden>
         <div class="dim"></div>
         <figure class="portrait me"><img id="scallMe" src="assets/game/char/pgy_m_sleepy.svg" alt="你"></figure>
